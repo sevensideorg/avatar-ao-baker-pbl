@@ -1,0 +1,75 @@
+{
+  "name": "avatar-ao-baker",
+  "version": "0.1.0",
+  "private": true,
+  "author": "bayer",
+  "description": "Desktop AO baking tool for VRChat avatar workflows.",
+  "main": "dist-electron/electron/main.js",
+  "scripts": {
+    "dev": "concurrently -k \"pnpm run dev:renderer\" \"pnpm run dev:electron:ts\" \"pnpm run dev:electron:app\"",
+    "dev:renderer": "vite",
+    "dev:electron:ts": "tsc -p tsconfig.electron.json --watch --preserveWatchOutput",
+    "dev:electron:app": "wait-on tcp:5173 file:dist-electron/electron/main.js && electron dist-electron/electron/main.js --renderer-url=http://127.0.0.1:5173",
+    "build": "vite build && pnpm run build:electron",
+    "build:electron": "tsc -p tsconfig.electron.json",
+    "dist:win": "pnpm build && electron-builder --win nsis",
+    "pack:win": "pnpm build && electron-builder --dir --win nsis",
+    "preview": "vite preview",
+    "start": "electron dist-electron/electron/main.js",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit"
+  },
+  "build": {
+    "appId": "com.codex.avataraobaker",
+    "productName": "Avatar AO Baker",
+    "asar": true,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "extraMetadata": {
+      "main": "dist-electron/electron/main.js"
+    },
+    "win": {
+      "signAndEditExecutable": false,
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "Avatar-AO-Baker-${version}-setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "three": "^0.180.0",
+    "three-mesh-bvh": "^0.9.9"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.4",
+    "@types/node": "^24.0.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/three": "^0.180.0",
+    "@vitejs/plugin-react": "^4.5.0",
+    "concurrently": "^9.0.1",
+    "electron": "^37.0.0",
+    "electron-builder": "^26.8.1",
+    "tailwindcss": "^4.1.4",
+    "typescript": "^5.8.3",
+    "vite": "^7.0.0",
+    "wait-on": "^8.0.3"
+  }
+}
