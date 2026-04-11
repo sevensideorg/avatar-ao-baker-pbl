@@ -2,7 +2,8 @@
   "name": "avatar-ao-baker",
   "version": "0.1.0",
   "private": true,
-  "author": "bayer",
+  "author": "Just Alternative",
+  "license": "MIT",
   "description": "Desktop AO baking tool for VRChat avatar workflows.",
   "main": "dist-electron/electron/main.js",
   "scripts": {
