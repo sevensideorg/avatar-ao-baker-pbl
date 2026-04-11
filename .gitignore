@@ -16,7 +16,7 @@ yarn-error.log*
 
 .env
 .env.*
-Tasks.md
+/Tasks.md
 
 coverage/
 .cache/
