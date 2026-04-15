@@ -142,11 +142,3 @@ pnpm run dist:win
 
 - `window.avatarAo.openFbxFile()`
 - `window.avatarAo.savePng(request)`
-
-実装方針の詳細は [AGENTS.md](./AGENTS.md) を参照してください。
-
-## 関連ドキュメント
-
-- [docs/ROADMAP.md](./docs/ROADMAP.md)
-- [docs/STATUS.md](./docs/STATUS.md)
-- [docs/TESTER_STRESS_TEST.md](./docs/TESTER_STRESS_TEST.md)
