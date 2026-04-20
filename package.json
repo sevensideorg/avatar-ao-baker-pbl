@@ -35,6 +35,7 @@
       "main": "dist-electron/electron/main.js"
     },
     "win": {
+      "icon": "svg/icon.ico",
       "signAndEditExecutable": false,
       "target": [
         {
