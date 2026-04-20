@@ -17,6 +17,7 @@
     "pack:win": "pnpm build && electron-builder --dir --win nsis",
     "preview": "vite preview",
     "start": "electron dist-electron/electron/main.js",
+    "test:ao": "vitest run src/lib/rayAoCore.test.ts",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit"
   },
   "build": {
@@ -72,6 +73,7 @@
     "tailwindcss": "^4.1.4",
     "typescript": "^5.8.3",
     "vite": "^7.0.0",
+    "vitest": "^4.1.4",
     "wait-on": "^8.0.3"
   }
 }

@@ -3,6 +3,7 @@ import { StaticGeometryGenerator } from "three-mesh-bvh";
 import { getMeshById } from "./collectMeshes";
 import { imageDataToPngBuffer } from "./imageExport";
 import {
+  BakeCancelledError,
   cloneSerializedGeometry,
   executeRayAoBake,
   mergeSerializedGeometries,
@@ -11,7 +12,7 @@ import {
   type RayAoBakeResult,
   type SerializedGeometry,
 } from "./rayAoCore";
-import type { BakeProgress, BakeResult, BakeSettings } from "./types";
+import type { BakeCancellation, BakeProgress, BakeResult, BakeSettings } from "./types";
 
 interface RayBakeInput {
   root: Object3D;
@@ -20,6 +21,7 @@ interface RayBakeInput {
   settings: BakeSettings;
   fileStem: string;
   onProgress?: (progress: BakeProgress) => void;
+  cancellation?: BakeCancellation;
 }
 
 type WorkerResultMessage = {
@@ -44,13 +46,21 @@ type WorkerResponseMessage =
 
 const sceneGeometryCache = new WeakMap<Object3D, SceneGeometryCache>();
 
+class WorkerExecutionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "WorkerExecutionError";
+  }
+}
+
 interface SceneGeometryCache {
   target: Map<string, SerializedGeometry>;
   occluder: Map<string, SerializedGeometry>;
 }
 
 export async function bakeRayAmbientOcclusion(input: RayBakeInput): Promise<BakeResult> {
-  const { fileStem, occluderMeshIds, onProgress, root, settings, targetMesh } = input;
+  const { cancellation, fileStem, occluderMeshIds, onProgress, root, settings, targetMesh } = input;
+  throwIfCancelled(cancellation);
   if (occluderMeshIds.length === 0) {
     throw new Error("Select at least one influence mesh for AO baking.");
   }
@@ -70,6 +80,7 @@ export async function bakeRayAmbientOcclusion(input: RayBakeInput): Promise<Bake
   });
 
   await yieldToMainThread();
+  throwIfCancelled(cancellation);
   const geometryCache = getSceneGeometryCache(root);
   const targetCacheKey = `${getSelectionId(targetMesh)}:${settings.uvChannel}`;
   const cachedTargetGeometry = geometryCache.target.get(targetCacheKey);
@@ -94,6 +105,7 @@ export async function bakeRayAmbientOcclusion(input: RayBakeInput): Promise<Bake
   });
 
   await yieldToMainThread();
+  throwIfCancelled(cancellation);
   const occluderGeometryParts: SerializedGeometry[] = [];
   for (let index = 0; index < occluderMeshes.length; index += 1) {
     const occluderMesh = occluderMeshes[index];
@@ -113,8 +125,10 @@ export async function bakeRayAmbientOcclusion(input: RayBakeInput): Promise<Bake
 
     if ((index + 1) % 4 === 0 && index + 1 < occluderMeshes.length) {
       await yieldToMainThread();
+      throwIfCancelled(cancellation);
     }
   }
+  throwIfCancelled(cancellation);
   const occluderGeometry = mergeSerializedGeometries(occluderGeometryParts);
 
   onProgress?.({
@@ -136,18 +150,22 @@ export async function bakeRayAmbientOcclusion(input: RayBakeInput): Promise<Bake
     occluderCount: occluderMeshes.length,
   };
 
-  const bakedOutput = await runRayAoBake(request, onProgress);
+  const bakedOutput = await runRayAoBake(request, onProgress, cancellation);
+  throwIfCancelled(cancellation);
   const outputImage = new ImageData(
     new Uint8ClampedArray(bakedOutput.pixels),
     bakedOutput.size,
     bakedOutput.size,
   );
 
+  const pngBuffer = await imageDataToPngBuffer(outputImage);
+  throwIfCancelled(cancellation);
+
   return {
     kind: "final",
     width: outputImage.width,
     height: outputImage.height,
-    pngBuffer: await imageDataToPngBuffer(outputImage),
+    pngBuffer,
     defaultFileName: `${sanitizeFileStem(fileStem)}_ao.png`,
     note: bakedOutput.note,
   };
@@ -196,32 +214,61 @@ function getSceneGeometryCache(root: Object3D): SceneGeometryCache {
 async function runRayAoBake(
   request: RayAoBakeRequest,
   onProgress?: (progress: BakeProgress) => void,
+  cancellation?: BakeCancellation,
 ): Promise<RayAoBakeResult> {
+  throwIfCancelled(cancellation);
   if (typeof Worker === "undefined") {
-    return executeRayAoBake(request, onProgress);
+    return executeRayAoBake(request, onProgress, cancellation);
   }
 
   try {
-    return await runRayAoBakeInWorker(cloneRayAoBakeRequest(request), onProgress);
-  } catch {
-    return executeRayAoBake(request, onProgress);
+    return await runRayAoBakeInWorker(cloneRayAoBakeRequest(request), onProgress, cancellation);
+  } catch (error) {
+    if (error instanceof WorkerExecutionError || error instanceof BakeCancelledError) {
+      throw error;
+    }
+    return executeRayAoBake(request, onProgress, cancellation);
   }
 }
 
 function runRayAoBakeInWorker(
   request: RayAoBakeRequest,
   onProgress?: (progress: BakeProgress) => void,
+  cancellation?: BakeCancellation,
 ): Promise<RayAoBakeResult> {
   return new Promise((resolve, reject) => {
+    if (cancellation?.signal.aborted) {
+      reject(new BakeCancelledError());
+      return;
+    }
+
     const worker = new Worker(new URL("./rayAoWorker.ts", import.meta.url), {
       type: "module",
     });
 
+    let settled = false;
     const cleanup = () => {
+      cancellation?.signal.removeEventListener("abort", handleAbort);
       worker.onmessage = null;
       worker.onerror = null;
       worker.terminate();
     };
+    const settle = (callback: () => void) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      cleanup();
+      callback();
+    };
+    const handleAbort = () => {
+      settle(() => {
+        reject(new BakeCancelledError());
+      });
+    };
+
+    cancellation?.signal.addEventListener("abort", handleAbort, { once: true });
 
     worker.onmessage = (event: MessageEvent<WorkerResponseMessage>) => {
       const message = event.data;
@@ -230,19 +277,22 @@ function runRayAoBakeInWorker(
         return;
       }
 
-      cleanup();
-
       if (message.type === "result") {
-        resolve(message.payload);
+        settle(() => {
+          resolve(message.payload);
+        });
         return;
       }
 
-      reject(new Error(message.payload));
+      settle(() => {
+        reject(new WorkerExecutionError(message.payload));
+      });
     };
 
     worker.onerror = (event) => {
-      cleanup();
-      reject(event.error instanceof Error ? event.error : new Error(event.message));
+      settle(() => {
+        reject(event.error instanceof Error ? event.error : new Error(event.message));
+      });
     };
 
     worker.postMessage(
@@ -283,6 +333,12 @@ function getSelectionId(mesh: Mesh | SkinnedMesh): string {
   }
 
   return mesh.uuid;
+}
+
+function throwIfCancelled(cancellation?: BakeCancellation): void {
+  if (cancellation?.signal.aborted) {
+    throw new BakeCancelledError();
+  }
 }
 
 function yieldToMainThread(): Promise<void> {

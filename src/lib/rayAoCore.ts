@@ -8,7 +8,7 @@ import {
   Vector3,
 } from "three";
 import { MeshBVH } from "three-mesh-bvh";
-import type { BakeProgress, BakeSettings } from "./types";
+import type { BakeCancellation, BakeProgress, BakeSettings } from "./types";
 
 export interface SerializedGeometry {
   position: Float32Array;
@@ -31,15 +31,33 @@ export interface RayAoBakeResult {
   note: string;
 }
 
+export class BakeCancelledError extends Error {
+  constructor() {
+    super("AO bake cancelled.");
+    this.name = "BakeCancelledError";
+  }
+}
+
 interface UvSampleBuffer {
   finalAo: Float32Array;
   coverage: Uint8Array;
   layerCounts: Uint8Array;
-  layerWeights: Float32Array;
+  primaryLayerWeights: Float32Array;
+  primaryWorldNormals: Float32Array;
+  primaryWorldPositions: Float32Array;
   worldNormals: Float32Array;
   worldPositions: Float32Array;
-  layerWorldNormals: Float32Array;
-  layerWorldPositions: Float32Array;
+  extraLayers: Map<number, UvSampleLayer[]>;
+}
+
+interface UvSampleLayer {
+  weight: number;
+  positionX: number;
+  positionY: number;
+  positionZ: number;
+  normalX: number;
+  normalY: number;
+  normalZ: number;
 }
 
 const tempUvA = new Vector2();
@@ -63,6 +81,8 @@ const tempSampleNormal = new Vector3();
 const tempSamplePosition = new Vector3();
 const tempLayerNormal = new Vector3();
 const tempLayerPosition = new Vector3();
+const tempLayerDataPosition = new Vector3();
+const tempLayerDataNormal = new Vector3();
 const workingRay = new Ray();
 const BLUR_KERNEL: Array<[offset: number, weight: number]> = [
   [0, 0.34],
@@ -206,6 +226,7 @@ export function mergeSerializedGeometries(geometries: SerializedGeometry[]): Ser
 export async function executeRayAoBake(
   request: RayAoBakeRequest,
   onProgress?: (progress: BakeProgress) => void,
+  cancellation?: BakeCancellation,
 ): Promise<RayAoBakeResult> {
   const { occluderCount, occluderGeometry: occluderGeometryData, settings, targetGeometry: targetGeometryData } =
     request;
@@ -215,6 +236,7 @@ export async function executeRayAoBake(
   let occluderGeometry: BufferGeometry | null = null;
 
   try {
+    throwIfCancelled(cancellation);
     const targetUvAttribute = targetGeometry.getAttribute(settings.uvChannel);
     if (!targetUvAttribute) {
       throw new Error(`The selected mesh does not contain ${settings.uvChannel}.`);
@@ -229,6 +251,7 @@ export async function executeRayAoBake(
       completed: 0,
       total: 1,
     });
+    throwIfCancelled(cancellation);
 
     const mergeDistance = estimateUvMergeDistance(targetGeometry, bakeMapSize, settings);
     const sampleBuffer = rasterizeTargetToUvBuffer(
@@ -240,6 +263,7 @@ export async function executeRayAoBake(
     if (!hasCoverage(sampleBuffer.coverage)) {
       throw new Error("The selected mesh produced no valid UV coverage for AO baking.");
     }
+    throwIfCancelled(cancellation);
 
     onProgress?.({
       stage: "Preparing UV samples",
@@ -252,12 +276,14 @@ export async function executeRayAoBake(
       completed: 0,
       total: 1,
     });
+    throwIfCancelled(cancellation);
 
     occluderGeometry = deserializeBufferGeometry(occluderGeometryData);
     if (!occluderGeometry.getAttribute("normal")) {
       occluderGeometry.computeVertexNormals();
     }
     const bvh = new MeshBVH(occluderGeometry);
+    throwIfCancelled(cancellation);
 
     onProgress?.({
       stage: "Building BVH",
@@ -265,18 +291,26 @@ export async function executeRayAoBake(
       total: 1,
     });
 
-    await computeAmbientOcclusion(sampleBuffer, bvh, settings, onProgress);
+    await computeAmbientOcclusion(sampleBuffer, bvh, settings, onProgress, cancellation);
 
     onProgress?.({
       stage: "Filtering AO",
       completed: 0,
       total: 1,
     });
+    throwIfCancelled(cancellation);
 
     const blurredAo = blurAmbientOcclusion(sampleBuffer, settings);
     const lowResolutionPixels = createAoPixels(blurredAo, sampleBuffer.coverage, bakeMapSize);
+    applyUvPaddingToPixels(
+      lowResolutionPixels,
+      bakeMapSize,
+      resolvePaddingIterations(settings.paddingPx, bakeMapSize, settings.textureSize),
+      false,
+    );
     const pixels = upscaleAoPixels(lowResolutionPixels, bakeMapSize, settings.textureSize);
-    applyUvPaddingToPixels(pixels, settings.textureSize, settings.paddingPx);
+    finalizePixelAlpha(pixels);
+    throwIfCancelled(cancellation);
 
     onProgress?.({
       stage: "Filtering AO",
@@ -334,11 +368,12 @@ function rasterizeTargetToUvBuffer(
   const finalAo = new Float32Array(pixelCount);
   const coverage = new Uint8Array(pixelCount);
   const layerCounts = new Uint8Array(pixelCount);
-  const layerWeights = new Float32Array(pixelCount * MAX_UV_LAYERS);
+  const primaryLayerWeights = new Float32Array(pixelCount);
+  const primaryWorldPositions = new Float32Array(pixelCount * 3);
+  const primaryWorldNormals = new Float32Array(pixelCount * 3);
   const worldPositions = new Float32Array(pixelCount * 3);
   const worldNormals = new Float32Array(pixelCount * 3);
-  const layerWorldPositions = new Float32Array(pixelCount * MAX_UV_LAYERS * 3);
-  const layerWorldNormals = new Float32Array(pixelCount * MAX_UV_LAYERS * 3);
+  const extraLayers = new Map<number, UvSampleLayer[]>();
 
   const triangleCount = index ? index.count / 3 : positionAttribute.count / 3;
   for (let triangleIndex = 0; triangleIndex < triangleCount; triangleIndex += 1) {
@@ -407,11 +442,12 @@ function rasterizeTargetToUvBuffer(
             finalAo,
             coverage,
             layerCounts,
-            layerWeights,
+            primaryLayerWeights,
+            primaryWorldNormals,
+            primaryWorldPositions,
             worldNormals,
             worldPositions,
-            layerWorldNormals,
-            layerWorldPositions,
+            extraLayers,
           },
           pixelIndex,
           tempSamplePosition,
@@ -426,11 +462,12 @@ function rasterizeTargetToUvBuffer(
     finalAo,
     coverage,
     layerCounts,
-    layerWeights,
+    primaryLayerWeights,
+    primaryWorldNormals,
+    primaryWorldPositions,
     worldNormals,
     worldPositions,
-    layerWorldNormals,
-    layerWorldPositions,
+    extraLayers,
   };
 }
 
@@ -443,43 +480,32 @@ async function computeAmbientOcclusion(
   bvh: MeshBVH,
   settings: BakeSettings,
   onProgress?: (progress: BakeProgress) => void,
+  cancellation?: BakeCancellation,
 ): Promise<void> {
-  const { coverage, finalAo, layerCounts, layerWeights, layerWorldNormals, layerWorldPositions } =
-    sampleBuffer;
+  const { coverage, finalAo, layerCounts } = sampleBuffer;
   const hemisphereSamples = generateHemisphereSamples(settings.samples);
   const pixelCount = coverage.length;
   const coverageCount = countCoverage(coverage);
   let processed = 0;
 
   for (let pixelIndex = 0; pixelIndex < pixelCount; pixelIndex += 1) {
+    if (processed % 256 === 0) {
+      throwIfCancelled(cancellation);
+    }
+
     if (coverage[pixelIndex] === 0) {
       continue;
     }
 
-    const layerOffset = pixelIndex * MAX_UV_LAYERS;
     const layerCount = layerCounts[pixelIndex];
     let aoSum = 0;
     let weightSum = 0;
 
     for (let layerIndex = 0; layerIndex < layerCount; layerIndex += 1) {
-      const layerWeight = layerWeights[layerOffset + layerIndex];
+      const layerWeight = readUvLayer(sampleBuffer, pixelIndex, layerIndex, tempPixelPosition, tempPixelNormal);
       if (layerWeight <= 0) {
         continue;
       }
-
-      const vectorIndex = (layerOffset + layerIndex) * 3;
-      tempPixelPosition.set(
-        layerWorldPositions[vectorIndex],
-        layerWorldPositions[vectorIndex + 1],
-        layerWorldPositions[vectorIndex + 2],
-      );
-      tempPixelNormal
-        .set(
-          layerWorldNormals[vectorIndex],
-          layerWorldNormals[vectorIndex + 1],
-          layerWorldNormals[vectorIndex + 2],
-        )
-        .normalize();
 
       buildOrthonormalBasis(tempPixelNormal, tempTangent, tempBitangent);
 
@@ -536,6 +562,7 @@ async function computeAmbientOcclusion(
         total: coverageCount,
       });
       await yieldToHost();
+      throwIfCancelled(cancellation);
     }
   }
 }
@@ -546,6 +573,8 @@ function blurAmbientOcclusion(sampleBuffer: UvSampleBuffer, settings: BakeSettin
   const verticalPass = new Float32Array(finalAo.length);
   const mapSize = settings.sampleMapSize;
   const positionThreshold = Math.max(settings.maxDistance * 0.5, settings.rayBias * 8);
+  const denoiseStrength = resolveDenoiseStrength(settings.samples);
+  const aoThreshold = resolveAoDenoiseThreshold(settings.samples);
 
   applyBlurPass(
     finalAo,
@@ -555,6 +584,8 @@ function blurAmbientOcclusion(sampleBuffer: UvSampleBuffer, settings: BakeSettin
     worldPositions,
     mapSize,
     positionThreshold,
+    aoThreshold,
+    denoiseStrength,
     1,
     0,
   );
@@ -566,6 +597,8 @@ function blurAmbientOcclusion(sampleBuffer: UvSampleBuffer, settings: BakeSettin
     worldPositions,
     mapSize,
     positionThreshold,
+    aoThreshold,
+    denoiseStrength,
     0,
     1,
   );
@@ -581,6 +614,8 @@ function applyBlurPass(
   worldPositions: Float32Array,
   size: number,
   positionThreshold: number,
+  aoThreshold: number,
+  denoiseStrength: number,
   stepX: number,
   stepY: number,
 ): void {
@@ -608,6 +643,7 @@ function applyBlurPass(
 
       let aoSum = 0;
       let weightSum = 0;
+      const centerAo = sourceAo[pixelIndex];
 
       for (const [offset, baseWeight] of BLUR_KERNEL) {
         const sampleX = x + stepX * offset;
@@ -639,14 +675,45 @@ function applyBlurPass(
         const positionDistance = tempPixelPosition.distanceTo(tempSamplePosition);
         const positionWeight =
           1 - smoothstep(positionThreshold, positionThreshold * 4, positionDistance);
-        const combinedWeight = baseWeight * normalWeight * positionWeight;
+        const aoDistance = Math.abs(centerAo - sourceAo[sampleIndex]);
+        const aoWeight = 1 - smoothstep(aoThreshold, aoThreshold * 2, aoDistance);
+        const combinedWeight = baseWeight * normalWeight * positionWeight * aoWeight;
 
         aoSum += sourceAo[sampleIndex] * combinedWeight;
         weightSum += combinedWeight;
       }
 
-      targetAo[pixelIndex] = weightSum > 0.0001 ? aoSum / weightSum : sourceAo[pixelIndex];
+      const denoisedAo = weightSum > 0.0001 ? aoSum / weightSum : centerAo;
+      targetAo[pixelIndex] = centerAo + (denoisedAo - centerAo) * denoiseStrength;
     }
+  }
+}
+
+function resolveDenoiseStrength(samples: BakeSettings["samples"]): number {
+  switch (samples) {
+    case 32:
+      return 0.88;
+    case 64:
+      return 0.72;
+    case 128:
+      return 0.52;
+    case 256:
+    default:
+      return 0.36;
+  }
+}
+
+function resolveAoDenoiseThreshold(samples: BakeSettings["samples"]): number {
+  switch (samples) {
+    case 32:
+      return 0.18;
+    case 64:
+      return 0.14;
+    case 128:
+      return 0.1;
+    case 256:
+    default:
+      return 0.08;
   }
 }
 
@@ -702,15 +769,37 @@ function upscaleAoPixels(
       const fx = sampleX - x0;
       const targetIndex = (y * targetSize + x) * 4;
 
-      for (let channel = 0; channel < 4; channel += 1) {
-        const topLeft = source[(y0 * sourceSize + x0) * 4 + channel];
-        const topRight = source[(y0 * sourceSize + x1) * 4 + channel];
-        const bottomLeft = source[(y1 * sourceSize + x0) * 4 + channel];
-        const bottomRight = source[(y1 * sourceSize + x1) * 4 + channel];
-        const top = topLeft + (topRight - topLeft) * fx;
-        const bottom = bottomLeft + (bottomRight - bottomLeft) * fx;
-        target[targetIndex + channel] = clampInt(Math.round(top + (bottom - top) * fy), 0, 255);
+      const topLeftIndex = (y0 * sourceSize + x0) * 4;
+      const topRightIndex = (y0 * sourceSize + x1) * 4;
+      const bottomLeftIndex = (y1 * sourceSize + x0) * 4;
+      const bottomRightIndex = (y1 * sourceSize + x1) * 4;
+      const topLeftWeight = (1 - fx) * (1 - fy);
+      const topRightWeight = fx * (1 - fy);
+      const bottomLeftWeight = (1 - fx) * fy;
+      const bottomRightWeight = fx * fy;
+      const coverageWeight =
+        alphaWeight(source, topLeftIndex, topLeftWeight) +
+        alphaWeight(source, topRightIndex, topRightWeight) +
+        alphaWeight(source, bottomLeftIndex, bottomLeftWeight) +
+        alphaWeight(source, bottomRightIndex, bottomRightWeight);
+
+      if (coverageWeight <= 0.0001) {
+        target[targetIndex] = 255;
+        target[targetIndex + 1] = 255;
+        target[targetIndex + 2] = 255;
+        target[targetIndex + 3] = 0;
+        continue;
       }
+
+      for (let channel = 0; channel < 3; channel += 1) {
+        const weightedValue =
+          colorWeight(source, topLeftIndex, channel, topLeftWeight) +
+          colorWeight(source, topRightIndex, channel, topRightWeight) +
+          colorWeight(source, bottomLeftIndex, channel, bottomLeftWeight) +
+          colorWeight(source, bottomRightIndex, channel, bottomRightWeight);
+        target[targetIndex + channel] = clampInt(Math.round(weightedValue / coverageWeight), 0, 255);
+      }
+      target[targetIndex + 3] = clampInt(Math.round(coverageWeight * 255), 0, 255);
     }
   }
 
@@ -721,6 +810,7 @@ function applyUvPaddingToPixels(
   pixels: Uint8ClampedArray,
   size: number,
   iterations: number,
+  finalizeAlpha = true,
 ): void {
   let source = new Uint8ClampedArray(pixels);
   let target = new Uint8ClampedArray(source.length);
@@ -761,7 +851,34 @@ function applyUvPaddingToPixels(
     pixels[index] = source[index];
     pixels[index + 1] = source[index + 1];
     pixels[index + 2] = source[index + 2];
-    pixels[index + 3] = 255;
+    pixels[index + 3] = finalizeAlpha ? 255 : source[index + 3];
+  }
+}
+
+function alphaWeight(source: Uint8ClampedArray, index: number, weight: number): number {
+  return (source[index + 3] / 255) * weight;
+}
+
+function colorWeight(
+  source: Uint8ClampedArray,
+  index: number,
+  channel: number,
+  weight: number,
+): number {
+  return source[index + channel] * alphaWeight(source, index, weight);
+}
+
+function resolvePaddingIterations(
+  paddingPx: number,
+  sourceSize: number,
+  targetSize: number,
+): number {
+  return Math.max(0, Math.ceil(paddingPx * (sourceSize / targetSize)));
+}
+
+function finalizePixelAlpha(pixels: Uint8ClampedArray): void {
+  for (let index = 3; index < pixels.length; index += 4) {
+    pixels[index] = 255;
   }
 }
 
@@ -774,34 +891,22 @@ function storeUvSample(
 ): void {
   const {
     coverage,
+    extraLayers,
     layerCounts,
-    layerWeights,
-    layerWorldNormals,
-    layerWorldPositions,
+    primaryLayerWeights,
+    primaryWorldNormals,
+    primaryWorldPositions,
   } = sampleBuffer;
 
   coverage[pixelIndex] = 255;
   const mergeDistanceSq = mergeDistance * mergeDistance;
-  const layerOffset = pixelIndex * MAX_UV_LAYERS;
   const previousLayerCount = layerCounts[pixelIndex];
   let targetLayer = -1;
   let closestLayer = 0;
   let closestDistanceSq = Number.POSITIVE_INFINITY;
 
   for (let layerIndex = 0; layerIndex < previousLayerCount; layerIndex += 1) {
-    const vectorIndex = (layerOffset + layerIndex) * 3;
-    tempLayerPosition.set(
-      layerWorldPositions[vectorIndex],
-      layerWorldPositions[vectorIndex + 1],
-      layerWorldPositions[vectorIndex + 2],
-    );
-    tempLayerNormal
-      .set(
-        layerWorldNormals[vectorIndex],
-        layerWorldNormals[vectorIndex + 1],
-        layerWorldNormals[vectorIndex + 2],
-      )
-      .normalize();
+    readUvLayer(sampleBuffer, pixelIndex, layerIndex, tempLayerPosition, tempLayerNormal);
 
     const distanceSq = tempLayerPosition.distanceToSquared(position);
     if (distanceSq < closestDistanceSq) {
@@ -824,41 +929,125 @@ function storeUvSample(
     }
   }
 
-  const layerWeightIndex = layerOffset + targetLayer;
-  const vectorIndex = layerWeightIndex * 3;
-  const previousWeight = layerWeights[layerWeightIndex];
-  const nextWeight = previousWeight + 1;
-  layerWeights[layerWeightIndex] = nextWeight;
+  if (targetLayer === 0) {
+    const vectorIndex = pixelIndex * 3;
+    const previousWeight = primaryLayerWeights[pixelIndex];
+    const nextWeight = previousWeight + 1;
+    primaryLayerWeights[pixelIndex] = nextWeight;
 
-  if (previousWeight === 0) {
-    layerWorldPositions[vectorIndex] = position.x;
-    layerWorldPositions[vectorIndex + 1] = position.y;
-    layerWorldPositions[vectorIndex + 2] = position.z;
-    layerWorldNormals[vectorIndex] = normal.x;
-    layerWorldNormals[vectorIndex + 1] = normal.y;
-    layerWorldNormals[vectorIndex + 2] = normal.z;
+    if (previousWeight === 0) {
+      primaryWorldPositions[vectorIndex] = position.x;
+      primaryWorldPositions[vectorIndex + 1] = position.y;
+      primaryWorldPositions[vectorIndex + 2] = position.z;
+      primaryWorldNormals[vectorIndex] = normal.x;
+      primaryWorldNormals[vectorIndex + 1] = normal.y;
+      primaryWorldNormals[vectorIndex + 2] = normal.z;
+    } else {
+      primaryWorldPositions[vectorIndex] =
+        (primaryWorldPositions[vectorIndex] * previousWeight + position.x) / nextWeight;
+      primaryWorldPositions[vectorIndex + 1] =
+        (primaryWorldPositions[vectorIndex + 1] * previousWeight + position.y) / nextWeight;
+      primaryWorldPositions[vectorIndex + 2] =
+        (primaryWorldPositions[vectorIndex + 2] * previousWeight + position.z) / nextWeight;
+
+      tempLayerNormal
+        .set(
+          primaryWorldNormals[vectorIndex] * previousWeight + normal.x,
+          primaryWorldNormals[vectorIndex + 1] * previousWeight + normal.y,
+          primaryWorldNormals[vectorIndex + 2] * previousWeight + normal.z,
+        )
+        .normalize();
+
+      primaryWorldNormals[vectorIndex] = tempLayerNormal.x;
+      primaryWorldNormals[vectorIndex + 1] = tempLayerNormal.y;
+      primaryWorldNormals[vectorIndex + 2] = tempLayerNormal.z;
+    }
   } else {
-    layerWorldPositions[vectorIndex] =
-      (layerWorldPositions[vectorIndex] * previousWeight + position.x) / nextWeight;
-    layerWorldPositions[vectorIndex + 1] =
-      (layerWorldPositions[vectorIndex + 1] * previousWeight + position.y) / nextWeight;
-    layerWorldPositions[vectorIndex + 2] =
-      (layerWorldPositions[vectorIndex + 2] * previousWeight + position.z) / nextWeight;
+    const extraLayerIndex = targetLayer - 1;
+    let layers = extraLayers.get(pixelIndex);
+    if (!layers) {
+      layers = [];
+      extraLayers.set(pixelIndex, layers);
+    }
 
-    tempLayerNormal
-      .set(
-        layerWorldNormals[vectorIndex] * previousWeight + normal.x,
-        layerWorldNormals[vectorIndex + 1] * previousWeight + normal.y,
-        layerWorldNormals[vectorIndex + 2] * previousWeight + normal.z,
-      )
-      .normalize();
-
-    layerWorldNormals[vectorIndex] = tempLayerNormal.x;
-    layerWorldNormals[vectorIndex + 1] = tempLayerNormal.y;
-    layerWorldNormals[vectorIndex + 2] = tempLayerNormal.z;
+    const existingLayer = layers[extraLayerIndex];
+    if (existingLayer) {
+      updateUvSampleLayer(existingLayer, position, normal);
+    } else {
+      layers[extraLayerIndex] = createUvSampleLayer(position, normal);
+    }
   }
 
   updateBlurGuidance(sampleBuffer, pixelIndex);
+}
+
+function readUvLayer(
+  sampleBuffer: UvSampleBuffer,
+  pixelIndex: number,
+  layerIndex: number,
+  position: Vector3,
+  normal: Vector3,
+): number {
+  if (layerIndex === 0) {
+    const vectorIndex = pixelIndex * 3;
+    position.set(
+      sampleBuffer.primaryWorldPositions[vectorIndex],
+      sampleBuffer.primaryWorldPositions[vectorIndex + 1],
+      sampleBuffer.primaryWorldPositions[vectorIndex + 2],
+    );
+    normal
+      .set(
+        sampleBuffer.primaryWorldNormals[vectorIndex],
+        sampleBuffer.primaryWorldNormals[vectorIndex + 1],
+        sampleBuffer.primaryWorldNormals[vectorIndex + 2],
+      )
+      .normalize();
+    return sampleBuffer.primaryLayerWeights[pixelIndex];
+  }
+
+  const layer = sampleBuffer.extraLayers.get(pixelIndex)?.[layerIndex - 1];
+  if (!layer) {
+    position.set(0, 0, 0);
+    normal.set(0, 1, 0);
+    return 0;
+  }
+
+  position.set(layer.positionX, layer.positionY, layer.positionZ);
+  normal.set(layer.normalX, layer.normalY, layer.normalZ).normalize();
+  return layer.weight;
+}
+
+function createUvSampleLayer(position: Vector3, normal: Vector3): UvSampleLayer {
+  return {
+    weight: 1,
+    positionX: position.x,
+    positionY: position.y,
+    positionZ: position.z,
+    normalX: normal.x,
+    normalY: normal.y,
+    normalZ: normal.z,
+  };
+}
+
+function updateUvSampleLayer(layer: UvSampleLayer, position: Vector3, normal: Vector3): void {
+  const previousWeight = layer.weight;
+  const nextWeight = previousWeight + 1;
+  layer.weight = nextWeight;
+  layer.positionX = (layer.positionX * previousWeight + position.x) / nextWeight;
+  layer.positionY = (layer.positionY * previousWeight + position.y) / nextWeight;
+  layer.positionZ = (layer.positionZ * previousWeight + position.z) / nextWeight;
+
+  tempLayerNormal
+    .set(
+      layer.normalX * previousWeight + normal.x,
+      layer.normalY * previousWeight + normal.y,
+      layer.normalZ * previousWeight + normal.z,
+    )
+    .normalize();
+
+  layer.normalX = tempLayerNormal.x;
+  layer.normalY = tempLayerNormal.y;
+  layer.normalZ = tempLayerNormal.z;
 }
 
 function estimateUvMergeDistance(
@@ -946,6 +1135,12 @@ function hasCoverage(coverage: Uint8Array): boolean {
   return coverage.some((value) => value !== 0);
 }
 
+function throwIfCancelled(cancellation?: BakeCancellation): void {
+  if (cancellation?.signal.aborted) {
+    throw new BakeCancelledError();
+  }
+}
+
 function shouldCountHit(
   hit: NonNullable<ReturnType<MeshBVH["raycastFirst"]>>,
   rayDirection: Vector3,
@@ -997,14 +1192,14 @@ function cloneFloat32(source: Float32Array): Float32Array {
 
 function updateBlurGuidance(sampleBuffer: UvSampleBuffer, pixelIndex: number): void {
   const {
+    extraLayers,
     layerCounts,
-    layerWeights,
-    layerWorldNormals,
-    layerWorldPositions,
+    primaryLayerWeights,
+    primaryWorldNormals,
+    primaryWorldPositions,
     worldNormals,
     worldPositions,
   } = sampleBuffer;
-  const layerOffset = pixelIndex * MAX_UV_LAYERS;
   const pixelVectorIndex = pixelIndex * 3;
   const layerCount = layerCounts[pixelIndex];
 
@@ -1018,18 +1213,38 @@ function updateBlurGuidance(sampleBuffer: UvSampleBuffer, pixelIndex: number): v
   let normalZ = 0;
 
   for (let layerIndex = 0; layerIndex < layerCount; layerIndex += 1) {
-    const weight = layerWeights[layerOffset + layerIndex];
+    let weight = 0;
+    if (layerIndex === 0) {
+      weight = primaryLayerWeights[pixelIndex];
+      tempLayerDataPosition.set(
+        primaryWorldPositions[pixelVectorIndex],
+        primaryWorldPositions[pixelVectorIndex + 1],
+        primaryWorldPositions[pixelVectorIndex + 2],
+      );
+      tempLayerDataNormal.set(
+        primaryWorldNormals[pixelVectorIndex],
+        primaryWorldNormals[pixelVectorIndex + 1],
+        primaryWorldNormals[pixelVectorIndex + 2],
+      );
+    } else {
+      const layer = extraLayers.get(pixelIndex)?.[layerIndex - 1];
+      if (layer) {
+        weight = layer.weight;
+        tempLayerDataPosition.set(layer.positionX, layer.positionY, layer.positionZ);
+        tempLayerDataNormal.set(layer.normalX, layer.normalY, layer.normalZ);
+      }
+    }
+
     if (weight <= 0) {
       continue;
     }
 
-    const vectorIndex = (layerOffset + layerIndex) * 3;
-    positionX += layerWorldPositions[vectorIndex] * weight;
-    positionY += layerWorldPositions[vectorIndex + 1] * weight;
-    positionZ += layerWorldPositions[vectorIndex + 2] * weight;
-    normalX += layerWorldNormals[vectorIndex] * weight;
-    normalY += layerWorldNormals[vectorIndex + 1] * weight;
-    normalZ += layerWorldNormals[vectorIndex + 2] * weight;
+    positionX += tempLayerDataPosition.x * weight;
+    positionY += tempLayerDataPosition.y * weight;
+    positionZ += tempLayerDataPosition.z * weight;
+    normalX += tempLayerDataNormal.x * weight;
+    normalY += tempLayerDataNormal.y * weight;
+    normalZ += tempLayerDataNormal.z * weight;
     positionWeightSum += weight;
     normalWeightSum += weight;
   }

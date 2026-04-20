@@ -2,6 +2,7 @@ import type { Mesh, Object3D, SkinnedMesh } from "three";
 
 export type UVChannel = "uv" | "uv2";
 export type BackfaceMode = "ignore" | "count";
+export type BakeSampleCount = 32 | 64 | 128 | 256;
 
 export interface MeshOption {
   id: string;
@@ -17,7 +18,7 @@ export interface MeshOption {
 export interface BakeSettings {
   textureSize: 2048 | 4096;
   sampleMapSize: 128 | 1024 | 2048;
-  samples: 64;
+  samples: BakeSampleCount;
   maxDistance: number;
   rayBias: number;
   cageExtrusion: number;
@@ -30,6 +31,10 @@ export interface BakeProgress {
   stage: string;
   completed: number;
   total: number;
+}
+
+export interface BakeCancellation {
+  signal: AbortSignal;
 }
 
 export type BakeResultKind = "preview" | "final";

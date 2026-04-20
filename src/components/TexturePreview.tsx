@@ -19,6 +19,7 @@ interface TexturePreviewProps {
   canSave: boolean;
   onPreview: () => void;
   onBake: () => void;
+  onCancelBake: () => void;
   onSave: (override?: { buffer: ArrayBuffer; defaultFileName: string }) => Promise<void> | void;
 }
 
@@ -43,6 +44,7 @@ export function TexturePreview({
   canSave,
   onPreview,
   onBake,
+  onCancelBake,
   onSave,
 }: TexturePreviewProps) {
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -565,6 +567,16 @@ export function TexturePreview({
               Save PNG
             </button>
           </div>
+
+          {busy ? (
+            <button
+              type="button"
+              onClick={onCancelBake}
+              className="rounded-xl border border-amber-300/25 bg-amber-300/12 px-4 py-2 text-[12px] font-semibold text-amber-50 transition hover:border-amber-200/45 hover:bg-amber-300/18"
+            >
+              Cancel Bake
+            </button>
+          ) : null}
 
           <p className="text-[10px] leading-5 text-slate-500">{status}</p>
 

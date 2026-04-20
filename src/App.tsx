@@ -30,6 +30,7 @@ type BakeAction = "preview" | "final";
 
 function App() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const bakeAbortControllerRef = useRef<AbortController | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [sceneRoot, setSceneRoot] = useState<Group | null>(null);
   const [meshOptions, setMeshOptions] = useState<MeshOption[]>([]);
@@ -235,6 +236,8 @@ function App() {
     }
 
     const bakeSettings = mode === "preview" ? createPreviewBakeSettings(settings) : settings;
+    const abortController = new AbortController();
+    bakeAbortControllerRef.current = abortController;
 
     setBusy(true);
     setError(null);
@@ -247,6 +250,9 @@ function App() {
         occluderMeshIds: selectedInfluenceMeshIds,
         settings: bakeSettings,
         fileStem: selectedMesh.name || fileName || "mesh",
+        cancellation: {
+          signal: abortController.signal,
+        },
         onProgress: (progress) => {
           const total = Math.max(progress.total, 1);
           const percent = Math.round((progress.completed / total) * 100);
@@ -262,6 +268,11 @@ function App() {
       setBakedTexture(nextTexture);
       setStatus(buildBakeCompleteStatus(mode, nextTexture));
     } catch (caughtError) {
+      if (isBakeCancelledError(caughtError)) {
+        setStatus(mode === "preview" ? "Preview cancelled." : "Bake cancelled.");
+        return;
+      }
+
       const message =
         caughtError instanceof Error
           ? caughtError.message
@@ -271,8 +282,16 @@ function App() {
       setError(message);
       setStatus(mode === "preview" ? "Preview failed." : "Bake failed.");
     } finally {
+      if (bakeAbortControllerRef.current === abortController) {
+        bakeAbortControllerRef.current = null;
+      }
       setBusy(false);
     }
+  };
+
+  const handleCancelBake = () => {
+    bakeAbortControllerRef.current?.abort();
+    setStatus("Cancelling AO bake...");
   };
 
   const handlePreview = async () => {
@@ -455,6 +474,7 @@ function App() {
               canSave={Boolean(bakedTexture?.kind === "final")}
               onPreview={handlePreview}
               onBake={handleBake}
+              onCancelBake={handleCancelBake}
               onSave={saveTexture}
             />
           </div>
@@ -489,6 +509,7 @@ function createPreviewBakeSettings(settings: BakeSettings): BakeSettings {
     ...settings,
     textureSize: 2048,
     sampleMapSize: 128,
+    samples: 32,
     paddingPx: 8,
   };
 }
@@ -503,4 +524,8 @@ function buildBakeCompleteStatus(mode: BakeAction, baked: BakeResult): string {
   return baked.note
     ? `Bake complete. ${baked.note}`
     : `Bake complete. Ready to save ${baked.defaultFileName}.`;
+}
+
+function isBakeCancelledError(error: unknown): boolean {
+  return error instanceof Error && error.name === "BakeCancelledError";
 }

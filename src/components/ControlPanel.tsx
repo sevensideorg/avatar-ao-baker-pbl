@@ -32,6 +32,16 @@ const sectionClassName =
   "rounded-2xl border border-white/8 bg-white/[0.03] p-3";
 const statCardClassName =
   "rounded-xl border border-white/6 bg-black/15 p-2 text-[10px] text-slate-400";
+const qualityOptions: Array<{
+  label: string;
+  value: BakeSettings["samples"];
+  description: string;
+}> = [
+  { label: "Draft", value: 32, description: "32 rays" },
+  { label: "Standard", value: 64, description: "64 rays" },
+  { label: "High", value: 128, description: "128 rays" },
+  { label: "Ultra", value: 256, description: "256 rays" },
+];
 
 export function ControlPanel(props: ControlPanelProps) {
   const {
@@ -86,6 +96,9 @@ export function ControlPanel(props: ControlPanelProps) {
             </span>
             <span className="rounded-full border border-white/10 bg-black/20 px-2 py-1 text-[9px] text-slate-300">
               {formatSampleMapSize(settings.sampleMapSize)} internal map
+            </span>
+            <span className="rounded-full border border-white/10 bg-black/20 px-2 py-1 text-[9px] text-slate-300">
+              {formatQualityLabel(settings.samples)}
             </span>
             <span className="rounded-full border border-white/10 bg-black/20 px-2 py-1 text-[9px] text-slate-300">
               {settingsMode === "recommended" ? recommendedProfileLabel : "Manual"} settings
@@ -289,6 +302,26 @@ export function ControlPanel(props: ControlPanelProps) {
             </label>
 
             <label className="block text-sm text-slate-300">
+              Quality
+              <select
+                className={fieldClassName}
+                value={settings.samples}
+                onChange={(event) =>
+                  onUpdateSettings({
+                    samples: Number(event.target.value) as BakeSettings["samples"],
+                  })
+                }
+                disabled={busy}
+              >
+                {qualityOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label} ({option.description})
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block text-sm text-slate-300">
               Padding
               <select
                 className={fieldClassName}
@@ -381,13 +414,18 @@ export function ControlPanel(props: ControlPanelProps) {
           </div>
 
           <p className="mt-2 text-[10px] leading-5 text-slate-500">
-            64 rays fixed. Use 128px for preview.
+            Preview uses 32 rays and a 128px internal map. Final Bake uses the selected quality.
           </p>
         </section>
       </div>
 
     </aside>
   );
+}
+
+function formatQualityLabel(value: BakeSettings["samples"]): string {
+  const match = qualityOptions.find((option) => option.value === value);
+  return match ? match.label : `${value} rays`;
 }
 
 function metersToInputMillimeters(value: number): number {
