@@ -128,6 +128,20 @@ AO は UV テクスチャとして出力されますが、遮蔽計算自体は 
 - Language: TypeScript
 - Package manager: pnpm
 
+## 0.1.2 extra branch notes
+
+`0.1.2` の `extra` ブランチでは、TypeScript 7 native preview の検証導線と TypeScript 境界の安全性を強化しています。
+
+- `typecheck` は TypeScript 7 native preview (`tsgo`) を使います
+- `typecheck:compare` で TypeScript 6 `tsc` と TypeScript 7 `tsgo` の両方を確認できます
+- `typecheck:strict` で renderer の未使用 symbol も追加確認できます
+- production build / Electron emit / scripts emit は安定性優先で TypeScript 6 `tsc` を維持しています
+- `savePng` IPC は runtime validation を行い、不正な request / 空 buffer / 過大 buffer を拒否します
+- preload の IPC channel 定義は `shared/ipc.ts` に統一しています
+- UI の select 値は直接 cast せず、許可値 parser で narrowing しています
+
+この変更は TS7 の全面移行ではなく、`extra` ブランチ限定の検証導入です。
+
 ## 開発セットアップ
 
 前提:
