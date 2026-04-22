@@ -16,6 +16,7 @@ interface TexturePreviewProps {
   error: string | null;
   busy: boolean;
   canBake: boolean;
+  canCancelBake: boolean;
   canSave: boolean;
   onPreview: () => void;
   onBake: () => void;
@@ -41,6 +42,7 @@ export function TexturePreview({
   error,
   busy,
   canBake,
+  canCancelBake,
   canSave,
   onPreview,
   onBake,
@@ -69,6 +71,7 @@ export function TexturePreview({
   const [dragging, setDragging] = useState(false);
   const [saveBusy, setSaveBusy] = useState(false);
   const [remap, setRemap] = useState<AoRemapSettings>(DEFAULT_AO_REMAP);
+  const remapRef = useRef<AoRemapSettings>(DEFAULT_AO_REMAP);
 
   useEffect(() => {
     zoomFactorRef.current = 1;
@@ -90,6 +93,10 @@ export function TexturePreview({
       remappedCanvasRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    remapRef.current = remap;
+  }, [remap]);
 
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -367,13 +374,18 @@ export function TexturePreview({
   const handleRemapChange =
     (key: keyof AoRemapSettings) => (event: ChangeEvent<HTMLInputElement>) => {
       const nextValue = Number.parseFloat(event.target.value);
-      setRemap((current) => ({
-        ...current,
-        [key]: Number.isFinite(nextValue) ? nextValue : current[key],
-      }));
+      setRemap((current) => {
+        const nextRemap = {
+          ...current,
+          [key]: Number.isFinite(nextValue) ? nextValue : current[key],
+        };
+        remapRef.current = nextRemap;
+        return nextRemap;
+      });
     };
 
   const handleResetRemap = () => {
+    remapRef.current = DEFAULT_AO_REMAP;
     setRemap(DEFAULT_AO_REMAP);
   };
 
@@ -382,7 +394,8 @@ export function TexturePreview({
       return;
     }
 
-    if (!hasActiveRemap(remap) || !baseImageDataRef.current) {
+    const currentRemap = remapRef.current;
+    if (!hasActiveRemap(currentRemap) || !baseImageDataRef.current) {
       await onSave();
       return;
     }
@@ -390,7 +403,7 @@ export function TexturePreview({
     setSaveBusy(true);
 
     try {
-      const remappedImageData = applyAoRemap(baseImageDataRef.current, remap);
+      const remappedImageData = applyAoRemap(baseImageDataRef.current, currentRemap);
       const remappedBuffer = await imageDataToPngBuffer(remappedImageData);
       await onSave({
         buffer: remappedBuffer,
@@ -416,7 +429,8 @@ export function TexturePreview({
       return;
     }
 
-    if (!hasActiveRemap(remap)) {
+    const currentRemap = remapRef.current;
+    if (!hasActiveRemap(currentRemap)) {
       previewSourceRef.current = baseCanvas;
       scheduleViewportSync();
       return;
@@ -432,7 +446,7 @@ export function TexturePreview({
       return;
     }
 
-    const remappedImageData = applyAoRemap(baseImageData, remap);
+    const remappedImageData = applyAoRemap(baseImageData, currentRemap);
     context.putImageData(remappedImageData, 0, 0);
     remappedCanvasRef.current = nextCanvas;
     previewSourceRef.current = nextCanvas;
@@ -568,7 +582,7 @@ export function TexturePreview({
             </button>
           </div>
 
-          {busy ? (
+          {canCancelBake ? (
             <button
               type="button"
               onClick={onCancelBake}

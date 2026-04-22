@@ -160,6 +160,8 @@ pnpm run dev:renderer
 pnpm run dev:electron:ts
 pnpm run dev:electron:app
 pnpm run typecheck
+pnpm run typecheck:tsgo
+pnpm run typecheck:compare
 pnpm run test:ao
 pnpm build
 pnpm start
@@ -170,11 +172,15 @@ pnpm run dist:win
 用途:
 
 - `pnpm run typecheck`: renderer / Electron 両方の型チェック
+- `pnpm run typecheck:tsgo`: TypeScript 7 native preview (`tsgo`) での型チェック
+- `pnpm run typecheck:compare`: 既存 `tsc` と `tsgo` の型チェックを続けて実行
 - `pnpm run test:ao`: synthetic geometry を使った AO regression test
 - `pnpm build`: renderer と Electron の本番ビルド
 - `pnpm start`: ビルド済みアプリの起動
 - `pnpm run pack:win`: Windows 配布前の展開確認
 - `pnpm run dist:win`: Windows installer exe の出力
+
+通常の開発・リリースビルドは TypeScript 6 の `typescript` / `tsc` を使います。TypeScript 7 は side-by-side の検証用として導入しており、`tsgo` は互換性確認と将来移行のために使います。
 
 ## アーキテクチャ
 

@@ -175,13 +175,13 @@ export function ControlPanel(props: ControlPanelProps) {
                 {selectedMesh ? selectedMesh.vertexCount.toLocaleString() : "0"}
               </p>
             </div>
-              <div className={statCardClassName}>
-                <p className="uppercase tracking-[0.18em]">Mode</p>
-                <p className="mt-1 text-sm font-medium text-slate-100">
-                  {selectedMesh?.isSkinned ? "Skinned pose" : "Static"}
-                </p>
-              </div>
+            <div className={statCardClassName}>
+              <p className="uppercase tracking-[0.18em]">Mode</p>
+              <p className="mt-1 text-sm font-medium text-slate-100">
+                {selectedMesh?.isSkinned ? "Skinned pose" : "Static"}
+              </p>
             </div>
+          </div>
 
           {selectedMesh?.isSkinned ? (
             <p className="mt-2.5 rounded-xl border border-amber-400/20 bg-amber-400/8 px-3 py-2 text-[10px] leading-5 text-amber-100">

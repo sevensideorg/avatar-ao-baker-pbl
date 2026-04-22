@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import type { Group } from "three";
 import { ControlPanel } from "./components/ControlPanel";
 import { PreviewPane } from "./components/PreviewPane";
@@ -44,16 +44,30 @@ function App() {
   const [status, setStatus] = useState("Open an FBX to begin.");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [bakeBusy, setBakeBusy] = useState(false);
 
-  const selectedMesh = meshOptions.find((mesh) => mesh.id === selectedMeshId) ?? null;
-  const bakeTargetOptions = meshOptions.filter((mesh) => mesh.canBake);
-  const selectedInfluenceMeshes = meshOptions.filter((mesh) => selectedInfluenceMeshIds.includes(mesh.id));
-  const recommendedBake = recommendBakeSettings({
-    preferredUvChannel: settings.uvChannel,
-    targetMesh: selectedMesh,
-    influenceMeshes: selectedInfluenceMeshes,
-    profileId: recommendationProfileId,
-  });
+  const selectedMesh = useMemo(
+    () => meshOptions.find((mesh) => mesh.id === selectedMeshId) ?? null,
+    [meshOptions, selectedMeshId],
+  );
+  const bakeTargetOptions = useMemo(
+    () => meshOptions.filter((mesh) => mesh.canBake),
+    [meshOptions],
+  );
+  const selectedInfluenceMeshes = useMemo(
+    () => meshOptions.filter((mesh) => selectedInfluenceMeshIds.includes(mesh.id)),
+    [meshOptions, selectedInfluenceMeshIds],
+  );
+  const recommendedBake = useMemo(
+    () =>
+      recommendBakeSettings({
+        preferredUvChannel: settings.uvChannel,
+        targetMesh: selectedMesh,
+        influenceMeshes: selectedInfluenceMeshes,
+        profileId: recommendationProfileId,
+      }),
+    [recommendationProfileId, selectedInfluenceMeshes, selectedMesh, settings.uvChannel],
+  );
   const recommendedSettings = recommendedBake.settings;
 
   useEffect(() => {
@@ -240,6 +254,7 @@ function App() {
     bakeAbortControllerRef.current = abortController;
 
     setBusy(true);
+    setBakeBusy(true);
     setError(null);
     setStatus(mode === "preview" ? "Starting AO preview..." : "Starting AO bake...");
 
@@ -285,12 +300,17 @@ function App() {
       if (bakeAbortControllerRef.current === abortController) {
         bakeAbortControllerRef.current = null;
       }
+      setBakeBusy(false);
       setBusy(false);
     }
   };
 
   const handleCancelBake = () => {
-    bakeAbortControllerRef.current?.abort();
+    if (!bakeAbortControllerRef.current) {
+      return;
+    }
+
+    bakeAbortControllerRef.current.abort();
     setStatus("Cancelling AO bake...");
   };
 
@@ -471,6 +491,7 @@ function App() {
               error={error}
               busy={busy}
               canBake={Boolean(sceneRoot && selectedMesh && selectedInfluenceMeshIds.length > 0)}
+              canCancelBake={bakeBusy}
               canSave={Boolean(bakedTexture?.kind === "final")}
               onPreview={handlePreview}
               onBake={handleBake}
