@@ -1,6 +1,6 @@
 {
   "name": "avatar-ao-baker",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "author": "Just Alternative",
   "license": "MIT",
@@ -22,6 +22,7 @@
     "typecheck": "pnpm run typecheck:tsgo",
     "typecheck:ts6": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit && tsc -p tsconfig.scripts.json --noEmit",
     "typecheck:tsgo": "tsgo -p tsconfig.json --noEmit && tsgo -p tsconfig.tsgo.electron.json --noEmit && tsgo -p tsconfig.tsgo.scripts.json --noEmit",
+    "typecheck:strict": "tsgo -p tsconfig.json --noEmit --noUnusedLocals --noUnusedParameters",
     "typecheck:compare": "pnpm run typecheck:ts6 && pnpm run typecheck:tsgo"
   },
   "build": {

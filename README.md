@@ -162,6 +162,7 @@ pnpm run dev:electron:app
 pnpm run typecheck
 pnpm run typecheck:ts6
 pnpm run typecheck:tsgo
+pnpm run typecheck:strict
 pnpm run typecheck:compare
 pnpm run test:ao
 pnpm build
@@ -175,6 +176,7 @@ pnpm run dist:win
 - `pnpm run typecheck`: TypeScript 7 native preview (`tsgo`) での型チェック
 - `pnpm run typecheck:ts6`: TypeScript 6 の `tsc` での型チェック
 - `pnpm run typecheck:tsgo`: renderer / Electron / scripts を `tsgo` で型チェック
+- `pnpm run typecheck:strict`: renderer を `tsgo` で未使用 symbol も含めて追加チェック
 - `pnpm run typecheck:compare`: `tsc` と `tsgo` の型チェックを続けて実行
 - `pnpm run test:ao`: synthetic geometry を使った AO regression test
 - `pnpm build`: renderer と Electron の本番ビルド
@@ -183,6 +185,8 @@ pnpm run dist:win
 - `pnpm run dist:win`: Windows installer exe の出力
 
 `extra` ブランチでは TypeScript 7 native preview (`tsgo`) を主 typecheck として試しています。通常の build / Electron emit / scripts emit は、安定性のため TypeScript 6 の `typescript` / `tsc` を維持しています。
+
+TypeScript 7 はこのブランチでは検証用途です。公開 release 用の build pipeline へ全面移行するのではなく、`typecheck:compare` で TypeScript 6 と TypeScript 7 の両方を通し、差分や preview 起因の問題がないかを確認する方針です。
 
 ## アーキテクチャ
 
