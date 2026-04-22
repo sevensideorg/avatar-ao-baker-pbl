@@ -42,6 +42,10 @@ const qualityOptions: Array<{
   { label: "High", value: 128, description: "128 rays" },
   { label: "Ultra", value: 256, description: "256 rays" },
 ];
+const textureSizeOptions = [2048, 4096] as const satisfies ReadonlyArray<BakeSettings["textureSize"]>;
+const sampleMapSizeOptions = [128, 1024, 2048] as const satisfies ReadonlyArray<BakeSettings["sampleMapSize"]>;
+const paddingOptions = [8, 16, 24] as const satisfies ReadonlyArray<BakeSettings["paddingPx"]>;
+const backfaceModeOptions = ["ignore", "count"] as const satisfies ReadonlyArray<BakeSettings["backfaceMode"]>;
 
 export function ControlPanel(props: ControlPanelProps) {
   const {
@@ -226,11 +230,12 @@ export function ControlPanel(props: ControlPanelProps) {
               <select
                 className={fieldClassName}
                 value={recommendationProfileId}
-                onChange={(event) =>
-                  onSelectRecommendationProfile(
-                    event.target.value as BakeRecommendationProfileId,
-                  )
-                }
+                onChange={(event) => {
+                  const profileId = parseRecommendationProfileId(event.target.value);
+                  if (profileId) {
+                    onSelectRecommendationProfile(profileId);
+                  }
+                }}
                 disabled={!selectedMesh || busy}
               >
                 {bakeRecommendationProfiles.map((profile) => (
@@ -248,11 +253,12 @@ export function ControlPanel(props: ControlPanelProps) {
               <select
                 className={fieldClassName}
                 value={settings.uvChannel}
-                onChange={(event) =>
-                  onUpdateSettings({
-                    uvChannel: event.target.value as BakeSettings["uvChannel"],
-                  })
-                }
+                onChange={(event) => {
+                  const uvChannel = parseUvChannel(event.target.value, selectedMesh?.uvChannels ?? []);
+                  if (uvChannel) {
+                    onUpdateSettings({ uvChannel });
+                  }
+                }}
                 disabled={!selectedMesh || busy}
               >
                 {(selectedMesh?.uvChannels ?? []).map((uvChannel) => (
@@ -268,14 +274,15 @@ export function ControlPanel(props: ControlPanelProps) {
               <select
                 className={fieldClassName}
                 value={settings.textureSize}
-                onChange={(event) =>
-                  onUpdateSettings({
-                    textureSize: Number(event.target.value) as BakeSettings["textureSize"],
-                  })
-                }
+                onChange={(event) => {
+                  const textureSize = parseNumberOption(event.target.value, textureSizeOptions);
+                  if (textureSize) {
+                    onUpdateSettings({ textureSize });
+                  }
+                }}
                 disabled={busy}
               >
-                {[2048, 4096].map((value) => (
+                {textureSizeOptions.map((value) => (
                   <option key={value} value={value}>
                     {value} x {value}
                   </option>
@@ -288,11 +295,12 @@ export function ControlPanel(props: ControlPanelProps) {
               <select
                 className={fieldClassName}
                 value={settings.sampleMapSize}
-                onChange={(event) =>
-                  onUpdateSettings({
-                    sampleMapSize: Number(event.target.value) as BakeSettings["sampleMapSize"],
-                  })
-                }
+                onChange={(event) => {
+                  const sampleMapSize = parseNumberOption(event.target.value, sampleMapSizeOptions);
+                  if (sampleMapSize) {
+                    onUpdateSettings({ sampleMapSize });
+                  }
+                }}
                 disabled={busy}
               >
                 <option value={128}>128px Preview</option>
@@ -306,11 +314,15 @@ export function ControlPanel(props: ControlPanelProps) {
               <select
                 className={fieldClassName}
                 value={settings.samples}
-                onChange={(event) =>
-                  onUpdateSettings({
-                    samples: Number(event.target.value) as BakeSettings["samples"],
-                  })
-                }
+                onChange={(event) => {
+                  const samples = parseNumberOption(
+                    event.target.value,
+                    qualityOptions.map((option) => option.value),
+                  );
+                  if (samples) {
+                    onUpdateSettings({ samples });
+                  }
+                }}
                 disabled={busy}
               >
                 {qualityOptions.map((option) => (
@@ -326,14 +338,15 @@ export function ControlPanel(props: ControlPanelProps) {
               <select
                 className={fieldClassName}
                 value={settings.paddingPx}
-                onChange={(event) =>
-                  onUpdateSettings({
-                    paddingPx: Number(event.target.value) as BakeSettings["paddingPx"],
-                  })
-                }
+                onChange={(event) => {
+                  const paddingPx = parseNumberOption(event.target.value, paddingOptions);
+                  if (paddingPx) {
+                    onUpdateSettings({ paddingPx });
+                  }
+                }}
                 disabled={busy}
               >
-                {[8, 16, 24].map((value) => (
+                {paddingOptions.map((value) => (
                   <option key={value} value={value}>
                     {value}px
                   </option>
@@ -400,11 +413,12 @@ export function ControlPanel(props: ControlPanelProps) {
               <select
                 className={fieldClassName}
                 value={settings.backfaceMode}
-                onChange={(event) =>
-                  onUpdateSettings({
-                    backfaceMode: event.target.value as BakeSettings["backfaceMode"],
-                  })
-                }
+                onChange={(event) => {
+                  const backfaceMode = parseStringOption(event.target.value, backfaceModeOptions);
+                  if (backfaceMode) {
+                    onUpdateSettings({ backfaceMode });
+                  }
+                }}
                 disabled={busy}
               >
                 <option value="ignore">Ignore</option>
@@ -432,10 +446,27 @@ function metersToInputMillimeters(value: number): number {
   return Number((value * 1000).toFixed(1));
 }
 
-function formatMillimeters(value: number): string {
-  const millimeters = value * 1000;
-  const rounded = millimeters >= 10 ? Math.round(millimeters) : Number(millimeters.toFixed(1));
-  return `${rounded}mm`;
+function parseRecommendationProfileId(value: string): BakeRecommendationProfileId | null {
+  const match = bakeRecommendationProfiles.find((profile) => profile.id === value);
+  return match?.id ?? null;
+}
+
+function parseUvChannel(
+  value: string,
+  uvChannels: BakeSettings["uvChannel"][],
+): BakeSettings["uvChannel"] | null {
+  return parseStringOption(value, uvChannels);
+}
+
+function parseNumberOption<T extends number>(value: string, options: ReadonlyArray<T>): T | null {
+  const parsed = Number(value);
+  const match = options.find((option) => option === parsed);
+  return match ?? null;
+}
+
+function parseStringOption<T extends string>(value: string, options: ReadonlyArray<T>): T | null {
+  const match = options.find((option) => option === value);
+  return match ?? null;
 }
 
 function formatSampleMapSize(value: BakeSettings["sampleMapSize"]): string {

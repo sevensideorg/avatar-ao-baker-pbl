@@ -1,10 +1,10 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { OpenFbxFileResult, SavePngRequest, SavePngResult } from "../shared/ipc";
-
-const IPC_CHANNELS = {
-  openFbxFile: "dialog:open-fbx-file",
-  savePng: "file:save-png",
-} as const;
+import {
+  IPC_CHANNELS,
+  type OpenFbxFileResult,
+  type SavePngRequest,
+  type SavePngResult,
+} from "../shared/ipc";
 
 contextBridge.exposeInMainWorld("avatarAo", {
   openFbxFile: (): Promise<OpenFbxFileResult> => ipcRenderer.invoke(IPC_CHANNELS.openFbxFile),
