@@ -1,6 +1,7 @@
 node_modules/
 dist/
 dist-electron/
+dist-scripts/
 
 .DS_Store
 Thumbs.db
