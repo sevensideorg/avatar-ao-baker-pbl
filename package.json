@@ -19,9 +19,10 @@
     "preview": "vite preview",
     "start": "electron dist-electron/electron/main.js",
     "test:ao": "vitest run src/lib/rayAoCore.test.ts",
-    "typecheck": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit && tsc -p tsconfig.scripts.json --noEmit",
-    "typecheck:tsgo": "tsgo -p tsconfig.json --noEmit && tsgo -p tsconfig.tsgo.electron.json --noEmit",
-    "typecheck:compare": "pnpm run typecheck && pnpm run typecheck:tsgo"
+    "typecheck": "pnpm run typecheck:tsgo",
+    "typecheck:ts6": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit && tsc -p tsconfig.scripts.json --noEmit",
+    "typecheck:tsgo": "tsgo -p tsconfig.json --noEmit && tsgo -p tsconfig.tsgo.electron.json --noEmit && tsgo -p tsconfig.tsgo.scripts.json --noEmit",
+    "typecheck:compare": "pnpm run typecheck:ts6 && pnpm run typecheck:tsgo"
   },
   "build": {
     "appId": "com.codex.avataraobaker",

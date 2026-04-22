@@ -9,9 +9,8 @@
     "skipLibCheck": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
-    "resolveJsonModule": true,
     "types": ["node"],
     "noEmit": true
   },
-  "include": ["electron/**/*.ts", "shared/**/*.ts"]
+  "include": ["scripts/**/*.ts"]
 }
