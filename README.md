@@ -172,7 +172,6 @@ pnpm dev
 ```bash
 pnpm run dev:renderer
 pnpm run dev:electron:ts
-pnpm run dev:electron:app
 pnpm run typecheck
 pnpm run typecheck:ts6
 pnpm run typecheck:tsgo

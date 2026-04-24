@@ -10,7 +10,6 @@
     "dev": "pnpm run build:scripts && node dist-scripts/scripts/dev.js",
     "dev:renderer": "vite",
     "dev:electron:ts": "tsc -p tsconfig.electron.json --watch --preserveWatchOutput",
-    "dev:electron:app": "pnpm run build:scripts && node dist-scripts/scripts/dev-electron-app.js",
     "build": "vite build && pnpm run build:electron",
     "build:electron": "tsc -p tsconfig.electron.json",
     "build:scripts": "tsc -p tsconfig.scripts.json",

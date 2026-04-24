@@ -1,4 +1,6 @@
 node_modules/
+.pnpm-store/
+_tmp_*
 dist/
 dist-electron/
 dist-scripts/
