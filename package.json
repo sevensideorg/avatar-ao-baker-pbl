@@ -26,7 +26,7 @@
     "typecheck:compare": "pnpm run typecheck:ts6 && pnpm run typecheck:tsgo"
   },
   "build": {
-    "appId": "com.codex.avataraobaker",
+    "appId": "com.sevensideorg.avataraobaker",
     "productName": "Avatar AO Baker",
     "asar": true,
     "directories": {

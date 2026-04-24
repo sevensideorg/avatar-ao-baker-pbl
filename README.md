@@ -128,19 +128,19 @@ AO は UV テクスチャとして出力されますが、遮蔽計算自体は 
 - Language: TypeScript
 - Package manager: pnpm
 
-## 0.1.2 extra branch notes
+## 0.1.2 の変更点
 
-`0.1.2` の `extra` ブランチでは、TypeScript 7 native preview の検証導線と TypeScript 境界の安全性を強化しています。
+`0.1.2` では、公開配布に向けてベイク品質、操作性、TypeScript 境界の安全性を強化しています。
 
-- `typecheck` は TypeScript 7 native preview (`tsgo`) を使います
-- `typecheck:compare` で TypeScript 6 `tsc` と TypeScript 7 `tsgo` の両方を確認できます
-- `typecheck:strict` で renderer の未使用 symbol も追加確認できます
-- production build / Electron emit / scripts emit は安定性優先で TypeScript 6 `tsc` を維持しています
-- `savePng` IPC は runtime validation を行い、不正な request / 空 buffer / 過大 buffer を拒否します
-- preload の IPC channel 定義は `shared/ipc.ts` に統一しています
-- UI の select 値は直接 cast せず、許可値 parser で narrowing しています
+- `Draft / Standard / High / Ultra` の quality preset を追加
+- ベイク中の `Cancel Bake` に対応
+- edge-preserving denoise と UV padding / upscale を改善
+- AO regression test を追加
+- `savePng` IPC の runtime validation を追加
+- preload の IPC channel 定義を `shared/ipc.ts` に統一
+- TypeScript 6 と TypeScript 7 native preview の side-by-side typecheck を追加
 
-この変更は TS7 の全面移行ではなく、`extra` ブランチ限定の検証導入です。
+TypeScript 7 native preview は開発時の型チェック検証用です。公開 release の build / Electron emit / scripts emit は、安定性のため TypeScript 6 `tsc` を使っています。
 
 ## 開発セットアップ
 

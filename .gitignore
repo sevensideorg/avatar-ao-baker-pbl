@@ -20,6 +20,12 @@ yarn-error.log*
 .env.local
 .env.*.local
 *.local
+
+*.pem
+*.pfx
+*.p12
+*.key
+*.crt
 /Tasks.md
 docs/
 
