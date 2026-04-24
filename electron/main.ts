@@ -5,6 +5,9 @@ import { registerDialogIpc } from "./ipc/dialog";
 import { registerFileIpc } from "./ipc/file";
 
 let mainWindow: BrowserWindow | null = null;
+const appUserModelId = "com.sevensideorg.avataraobaker";
+
+app.setAppUserModelId(appUserModelId);
 
 function getRendererUrl(): string | null {
   const rendererArg = process.argv.find((value) => value.startsWith("--renderer-url="));

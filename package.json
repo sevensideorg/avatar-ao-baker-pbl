@@ -7,7 +7,7 @@
   "description": "Desktop AO baking tool for VRChat avatar workflows.",
   "main": "dist-electron/electron/main.js",
   "scripts": {
-    "dev": "concurrently -k \"pnpm run dev:renderer\" \"pnpm run dev:electron:ts\" \"pnpm run dev:electron:app\"",
+    "dev": "pnpm run build:scripts && node dist-scripts/scripts/dev.js",
     "dev:renderer": "vite",
     "dev:electron:ts": "tsc -p tsconfig.electron.json --watch --preserveWatchOutput",
     "dev:electron:app": "pnpm run build:scripts && node dist-scripts/scripts/dev-electron-app.js",
@@ -73,7 +73,6 @@
     "@types/three": "^0.184.0",
     "@typescript/native-preview": "7.0.0-dev.20260421.2",
     "@vitejs/plugin-react": "^6.0.1",
-    "concurrently": "9.2.1",
     "electron": "^41.2.2",
     "electron-builder": "26.8.1",
     "tailwindcss": "^4.2.4",
