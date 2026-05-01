@@ -1,11 +1,36 @@
 :root {
   color-scheme: dark;
   font-family: "Bahnschrift", "Aptos", "Segoe UI Variable Display", "Segoe UI", sans-serif;
+  --color-bg-top: rgba(72, 179, 205, 0.18);
+  --color-bg-top-alt: rgba(255, 166, 92, 0.13);
+  --color-bg-start: #141b27;
+  --color-bg-end: #090d14;
+  --color-surface-panel: rgba(2, 6, 23, 0.6);
+  --color-surface-panel-strong: rgba(2, 6, 23, 0.68);
+  --color-surface-card: rgba(255, 255, 255, 0.03);
+  --color-surface-card-strong: rgba(0, 0, 0, 0.2);
+  --color-surface-input: rgba(15, 23, 36, 0.82);
+  --color-border-strong: rgba(255, 255, 255, 0.1);
+  --color-border-soft: rgba(255, 255, 255, 0.08);
+  --color-border-faint: rgba(255, 255, 255, 0.06);
+  --color-text-primary: #f8fbff;
+  --color-text-secondary: #d7e1ec;
+  --color-text-muted: #a4b4c7;
+  --color-text-subtle: #8b9cb0;
+  --color-text-disabled: #6d7d91;
+  --color-accent: rgb(34, 211, 238);
+  --color-accent-strong: rgb(103, 232, 249);
+  --color-accent-soft: rgba(34, 211, 238, 0.1);
+  --color-danger-soft: rgba(244, 63, 94, 0.2);
+  --color-warning-soft: rgba(252, 211, 77, 0.12);
+  --shadow-panel: 0 24px 100px rgba(4, 12, 25, 0.36);
+  --radius-panel: 1.5rem;
+  --radius-card: 1rem;
   background:
-    radial-gradient(circle at top left, rgba(72, 179, 205, 0.18), transparent 34%),
-    radial-gradient(circle at top right, rgba(255, 166, 92, 0.13), transparent 28%),
-    linear-gradient(180deg, #141b27 0%, #090d14 100%);
-  color: #e6edf6;
+    radial-gradient(circle at top left, var(--color-bg-top), transparent 34%),
+    radial-gradient(circle at top right, var(--color-bg-top-alt), transparent 28%),
+    linear-gradient(180deg, var(--color-bg-start) 0%, var(--color-bg-end) 100%);
+  color: var(--color-text-secondary);
 }
 
 html,
@@ -18,9 +43,9 @@ body,
 body {
   margin: 0;
   background:
-    radial-gradient(circle at top left, rgba(72, 179, 205, 0.18), transparent 34%),
-    radial-gradient(circle at top right, rgba(255, 166, 92, 0.13), transparent 28%),
-    linear-gradient(180deg, #141b27 0%, #090d14 100%);
+    radial-gradient(circle at top left, var(--color-bg-top), transparent 34%),
+    radial-gradient(circle at top right, var(--color-bg-top-alt), transparent 28%),
+    linear-gradient(180deg, var(--color-bg-start) 0%, var(--color-bg-end) 100%);
 }
 
 * {
@@ -34,19 +59,19 @@ select {
 }
 
 select {
-  color: #f8fafc;
-  background-color: rgba(15, 23, 36, 0.82);
+  color: var(--color-text-primary);
+  background-color: var(--color-surface-input);
   color-scheme: dark;
 }
 
 select option,
 select optgroup {
-  color: #e6edf6;
+  color: var(--color-text-secondary);
   background-color: #0f1724;
 }
 
 select option:disabled {
-  color: #7f8ea3;
+  color: var(--color-text-disabled);
 }
 
 ::selection {

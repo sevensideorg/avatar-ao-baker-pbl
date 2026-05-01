@@ -30,6 +30,11 @@ const defaultSettings: BakeSettings = {
 type BakeAction = "preview" | "final";
 type ResizeHandle = "sidebar" | "scene";
 
+const LAYOUT_BREAKPOINT = 1120;
+const SIDEBAR_MIN_WIDTH = 320;
+const PREVIEW_MIN_WIDTH = 320;
+const RESIZE_RAIL_WIDTH = 14;
+
 type ResizeState = {
   handle: ResizeHandle;
   pointerId: number;
@@ -59,7 +64,19 @@ function App() {
   const [busy, setBusy] = useState(false);
   const [bakeBusy, setBakeBusy] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(360);
-  const [sceneRatio, setSceneRatio] = useState(0.55);
+  const [sceneWidth, setSceneWidth] = useState(580);
+  const [compactLayout, setCompactLayout] = useState(false);
+  const [activeResizeHandle, setActiveResizeHandle] = useState<ResizeHandle | null>(null);
+  const sidebarWidthRef = useRef(sidebarWidth);
+  const sceneWidthRef = useRef(sceneWidth);
+
+  useEffect(() => {
+    sidebarWidthRef.current = sidebarWidth;
+  }, [sidebarWidth]);
+
+  useEffect(() => {
+    sceneWidthRef.current = sceneWidth;
+  }, [sceneWidth]);
 
   const stopResize = (event?: globalThis.PointerEvent) => {
     if (event && resizeStateRef.current && resizeStateRef.current.pointerId !== event.pointerId) {
@@ -67,6 +84,7 @@ function App() {
     }
 
     resizeStateRef.current = null;
+    setActiveResizeHandle(null);
     window.removeEventListener("pointermove", handleGlobalPointerMove);
     window.removeEventListener("pointerup", stopResize);
     window.removeEventListener("pointercancel", stopResize);
@@ -84,8 +102,8 @@ function App() {
       const layoutWidth = layoutRef.current?.clientWidth ?? 0;
       const nextSidebarWidth = clampNumber(
         resizeState.startSidebarWidth + deltaX,
-        280,
-        Math.max(280, layoutWidth - 820),
+        SIDEBAR_MIN_WIDTH,
+        getSidebarMaxWidth(layoutWidth),
       );
       setSidebarWidth(nextSidebarWidth);
       return;
@@ -96,9 +114,12 @@ function App() {
       return;
     }
 
-    const startSceneWidth = resizeState.startSceneRatio * workspaceWidth;
-    const nextSceneWidth = clampNumber(startSceneWidth + deltaX, 360, workspaceWidth - 360);
-    setSceneRatio(nextSceneWidth / workspaceWidth);
+    const nextSceneWidth = clampNumber(
+      resizeState.startSceneRatio * workspaceWidth + deltaX,
+      PREVIEW_MIN_WIDTH,
+      getSceneMaxWidth(workspaceWidth),
+    );
+    setSceneWidth(nextSceneWidth);
   };
 
   const selectedMesh = useMemo(
@@ -164,6 +185,60 @@ function App() {
   useEffect(() => {
     return () => {
       stopResize();
+    };
+  }, []);
+
+  useEffect(() => {
+    const layout = layoutRef.current;
+    if (!layout) {
+      return;
+    }
+
+    const syncLayout = () => {
+      const layoutWidth = layout.clientWidth;
+      const nextCompactLayout = layoutWidth < LAYOUT_BREAKPOINT;
+      setCompactLayout((current) => (current === nextCompactLayout ? current : nextCompactLayout));
+
+      if (nextCompactLayout) {
+        return;
+      }
+
+      const nextSidebarWidth = clampNumber(
+        sidebarWidthRef.current,
+        SIDEBAR_MIN_WIDTH,
+        getSidebarMaxWidth(layoutWidth),
+      );
+
+      if (nextSidebarWidth !== sidebarWidthRef.current) {
+        sidebarWidthRef.current = nextSidebarWidth;
+        setSidebarWidth(nextSidebarWidth);
+      }
+
+      const workspaceWidth = Math.max(
+        layoutWidth - nextSidebarWidth - RESIZE_RAIL_WIDTH,
+        PREVIEW_MIN_WIDTH * 2 + RESIZE_RAIL_WIDTH,
+      );
+      const nextSceneWidth = clampNumber(
+        sceneWidthRef.current,
+        PREVIEW_MIN_WIDTH,
+        getSceneMaxWidth(workspaceWidth),
+      );
+
+      if (nextSceneWidth !== sceneWidthRef.current) {
+        sceneWidthRef.current = nextSceneWidth;
+        setSceneWidth(nextSceneWidth);
+      }
+    };
+
+    syncLayout();
+
+    const resizeObserver = new ResizeObserver(() => {
+      syncLayout();
+    });
+    resizeObserver.observe(layout);
+
+    return () => {
+      resizeObserver.disconnect();
     };
   }, []);
 
@@ -471,13 +546,19 @@ function App() {
   };
 
   const handleResizeStart = (handle: ResizeHandle) => (event: PointerEvent<HTMLButtonElement>) => {
+    if (compactLayout) {
+      return;
+    }
+
     event.preventDefault();
+    setActiveResizeHandle(handle);
     resizeStateRef.current = {
       handle,
       pointerId: event.pointerId,
       startX: event.clientX,
       startSidebarWidth: sidebarWidth,
-      startSceneRatio: sceneRatio,
+      startSceneRatio:
+        handle === "scene" ? sceneWidth / Math.max(workspaceRef.current?.clientWidth ?? 1, 1) : 0,
     };
     window.addEventListener("pointermove", handleGlobalPointerMove);
     window.addEventListener("pointerup", stopResize);
@@ -495,7 +576,10 @@ function App() {
       />
       <div className={styles.shell}>
         <div ref={layoutRef} className={styles.contentGrid}>
-          <div className={styles.sidebarColumn} style={{ width: `${sidebarWidth}px` }}>
+          <div
+            className={styles.sidebarColumn}
+            style={compactLayout ? undefined : { width: `${sidebarWidth}px` }}
+          >
             <ControlPanel
               fileName={fileName}
               bakeTargetOptions={bakeTargetOptions}
@@ -521,7 +605,9 @@ function App() {
           <div className={styles.resizeRail}>
             <button
               type="button"
-              className={styles.resizeHandle}
+              className={`${styles.resizeHandle} ${
+                activeResizeHandle === "sidebar" ? styles.resizeHandleActive : ""
+              }`}
               aria-label="Resize control panel"
               onPointerDown={handleResizeStart("sidebar")}
             />
@@ -530,7 +616,7 @@ function App() {
           <div ref={workspaceRef} className={styles.workspaceColumn}>
             <section
               className={`${styles.scenePanel} panel-shell`}
-              style={{ width: `calc(${(sceneRatio * 100).toFixed(3)}% - 0.375rem)` }}
+              style={compactLayout ? undefined : { width: `${sceneWidth}px` }}
             >
               <div className={styles.sceneHeader}>
                 <div>
@@ -562,7 +648,9 @@ function App() {
             <div className={styles.resizeRail}>
               <button
                 type="button"
-                className={styles.resizeHandle}
+                className={`${styles.resizeHandle} ${
+                  activeResizeHandle === "scene" ? styles.resizeHandleActive : ""
+                }`}
                 aria-label="Resize preview panes"
                 onPointerDown={handleResizeStart("scene")}
               />
@@ -638,4 +726,15 @@ function isBakeCancelledError(error: unknown): boolean {
 
 function clampNumber(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
+}
+
+function getSidebarMaxWidth(layoutWidth: number): number {
+  return Math.max(
+    SIDEBAR_MIN_WIDTH,
+    layoutWidth - RESIZE_RAIL_WIDTH - (PREVIEW_MIN_WIDTH * 2 + RESIZE_RAIL_WIDTH),
+  );
+}
+
+function getSceneMaxWidth(workspaceWidth: number): number {
+  return Math.max(PREVIEW_MIN_WIDTH, workspaceWidth - RESIZE_RAIL_WIDTH - PREVIEW_MIN_WIDTH);
 }

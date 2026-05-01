@@ -3,9 +3,9 @@
   min-width: 0;
   flex-direction: column;
   gap: 0.625rem;
-  border-radius: 1.35rem;
+  border-radius: var(--radius-panel);
   padding: 0.75rem;
-  background: rgba(2, 6, 23, 0.65);
+  background: var(--color-surface-panel-strong);
 }
 
 .header {
@@ -18,7 +18,7 @@
 .brandEyebrow {
   margin: 0;
   color: rgba(103, 232, 249, 0.8);
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   font-weight: 500;
   line-height: 1;
   letter-spacing: 0.3em;
@@ -27,7 +27,7 @@
 
 .title {
   margin: 0.25rem 0 0;
-  color: #ffffff;
+  color: var(--color-text-primary);
   font-size: 1.0625rem;
   font-weight: 600;
   line-height: 1.2;
@@ -35,8 +35,8 @@
 
 .subtitle {
   margin: 0.25rem 0 0;
-  color: #94a3b8;
-  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
   line-height: 1.45;
 }
 
@@ -59,8 +59,8 @@
 
 .workspaceLabel {
   margin: 0;
-  color: #94a3b8;
-  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
   line-height: 1;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -70,8 +70,8 @@
   margin: 0.25rem 0 0;
   min-width: 0;
   overflow: hidden;
-  color: #f1f5f9;
-  font-size: 0.75rem;
+  color: var(--color-text-primary);
+  font-size: 0.8125rem;
   font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -85,7 +85,7 @@
 
 .metaPill {
   padding: 0.25rem 0.5rem;
-  font-size: 0.5625rem;
+  font-size: 0.6875rem;
 }
 
 .openButton {
@@ -107,8 +107,8 @@
 
 .sectionTitle {
   margin: 0;
-  color: #94a3b8;
-  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
   line-height: 1;
   letter-spacing: 0.24em;
   text-transform: uppercase;
@@ -116,14 +116,14 @@
 
 .sectionSubtitle {
   margin: 0.25rem 0 0;
-  color: #94a3b8;
-  font-size: 0.625rem;
+  color: var(--color-text-subtle);
+  font-size: 0.75rem;
   line-height: 1.45;
 }
 
 .selectionBadge {
   padding: 0.125rem 0.5rem;
-  font-size: 0.5625rem;
+  font-size: 0.6875rem;
 }
 
 .fieldGroup {
@@ -134,8 +134,8 @@
 
 .label {
   display: block;
-  color: #cbd5e1;
-  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  font-size: 0.8125rem;
 }
 
 .splitGrid {
@@ -161,7 +161,7 @@
 
 .statValueLarge {
   margin: 0.375rem 0 0;
-  color: #f1f5f9;
+  color: var(--color-text-primary);
   font-size: 0.875rem;
   font-weight: 500;
   line-height: 1.2;
@@ -169,7 +169,7 @@
 
 .statValue {
   margin: 0.25rem 0 0;
-  color: #f1f5f9;
+  color: var(--color-text-primary);
   font-size: 0.875rem;
   font-weight: 500;
   line-height: 1.2;
@@ -181,12 +181,12 @@
 
 .modePill {
   padding: 0.25rem 0.625rem;
-  font-size: 0.625rem;
+  font-size: 0.6875rem;
 }
 
 .helperText {
   margin: 0.5rem 0 0;
-  color: #64748b;
-  font-size: 0.625rem;
+  color: var(--color-text-subtle);
+  font-size: 0.75rem;
   line-height: 1.45;
 }
