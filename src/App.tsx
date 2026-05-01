@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type PointerEvent } from "react";
 import type { Group } from "three";
+import styles from "./App.module.css";
 import { ControlPanel } from "./components/ControlPanel";
 import { PreviewPane } from "./components/PreviewPane";
 import { TexturePreview } from "./components/TexturePreview";
@@ -27,10 +28,22 @@ const defaultSettings: BakeSettings = {
 };
 
 type BakeAction = "preview" | "final";
+type ResizeHandle = "sidebar" | "scene";
+
+type ResizeState = {
+  handle: ResizeHandle;
+  pointerId: number;
+  startX: number;
+  startSidebarWidth: number;
+  startSceneRatio: number;
+};
 
 function App() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const bakeAbortControllerRef = useRef<AbortController | null>(null);
+  const layoutRef = useRef<HTMLDivElement | null>(null);
+  const workspaceRef = useRef<HTMLDivElement | null>(null);
+  const resizeStateRef = useRef<ResizeState | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [sceneRoot, setSceneRoot] = useState<Group | null>(null);
   const [meshOptions, setMeshOptions] = useState<MeshOption[]>([]);
@@ -45,6 +58,48 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [bakeBusy, setBakeBusy] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(360);
+  const [sceneRatio, setSceneRatio] = useState(0.55);
+
+  const stopResize = (event?: globalThis.PointerEvent) => {
+    if (event && resizeStateRef.current && resizeStateRef.current.pointerId !== event.pointerId) {
+      return;
+    }
+
+    resizeStateRef.current = null;
+    window.removeEventListener("pointermove", handleGlobalPointerMove);
+    window.removeEventListener("pointerup", stopResize);
+    window.removeEventListener("pointercancel", stopResize);
+  };
+
+  const handleGlobalPointerMove = (event: globalThis.PointerEvent) => {
+    const resizeState = resizeStateRef.current;
+    if (!resizeState || resizeState.pointerId !== event.pointerId) {
+      return;
+    }
+
+    const deltaX = event.clientX - resizeState.startX;
+
+    if (resizeState.handle === "sidebar") {
+      const layoutWidth = layoutRef.current?.clientWidth ?? 0;
+      const nextSidebarWidth = clampNumber(
+        resizeState.startSidebarWidth + deltaX,
+        280,
+        Math.max(280, layoutWidth - 820),
+      );
+      setSidebarWidth(nextSidebarWidth);
+      return;
+    }
+
+    const workspaceWidth = workspaceRef.current?.clientWidth ?? 0;
+    if (workspaceWidth <= 0) {
+      return;
+    }
+
+    const startSceneWidth = resizeState.startSceneRatio * workspaceWidth;
+    const nextSceneWidth = clampNumber(startSceneWidth + deltaX, 360, workspaceWidth - 360);
+    setSceneRatio(nextSceneWidth / workspaceWidth);
+  };
 
   const selectedMesh = useMemo(
     () => meshOptions.find((mesh) => mesh.id === selectedMeshId) ?? null,
@@ -105,6 +160,12 @@ function App() {
       }, 0);
     };
   }, [sceneRoot]);
+
+  useEffect(() => {
+    return () => {
+      stopResize();
+    };
+  }, []);
 
   const updateSettings = (next: Partial<BakeSettings>) => {
     setSettingsMode("manual");
@@ -271,9 +332,7 @@ function App() {
         onProgress: (progress) => {
           const total = Math.max(progress.total, 1);
           const percent = Math.round((progress.completed / total) * 100);
-          setStatus(
-            `${progress.stage} ${percent}%${mode === "preview" ? " (preview)" : ""}`,
-          );
+          setStatus(`${progress.stage} ${percent}%${mode === "preview" ? " (preview)" : ""}`);
         },
       });
 
@@ -360,12 +419,7 @@ function App() {
     setSettings(nextRecommendedBake.settings);
   };
 
-  const saveTexture = async (
-    override?: {
-      buffer: ArrayBuffer;
-      defaultFileName: string;
-    },
-  ) => {
+  const saveTexture = async (override?: { buffer: ArrayBuffer; defaultFileName: string }) => {
     const textureToSave =
       override ??
       (bakedTexture && bakedTexture.kind === "final"
@@ -416,18 +470,32 @@ function App() {
     }
   };
 
+  const handleResizeStart = (handle: ResizeHandle) => (event: PointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    resizeStateRef.current = {
+      handle,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startSidebarWidth: sidebarWidth,
+      startSceneRatio: sceneRatio,
+    };
+    window.addEventListener("pointermove", handleGlobalPointerMove);
+    window.addEventListener("pointerup", stopResize);
+    window.addEventListener("pointercancel", stopResize);
+  };
+
   return (
-    <div className="h-dvh overflow-hidden p-3 text-slate-100 lg:p-4">
+    <div className={styles.app}>
       <input
         ref={fileInputRef}
         type="file"
         accept=".fbx"
-        className="hidden"
+        className={styles.fileInput}
         onChange={handleBrowserFileChange}
       />
-      <div className="mx-auto h-full max-w-[1840px]">
-        <div className="grid h-full grid-cols-[360px_minmax(0,1fr)] gap-3">
-          <div className="min-h-0 overflow-y-auto pr-1.5">
+      <div className={styles.shell}>
+        <div ref={layoutRef} className={styles.contentGrid}>
+          <div className={styles.sidebarColumn} style={{ width: `${sidebarWidth}px` }}>
             <ControlPanel
               fileName={fileName}
               bakeTargetOptions={bakeTargetOptions}
@@ -450,26 +518,32 @@ function App() {
             />
           </div>
 
-          <div className="grid min-h-0 min-w-0 grid-cols-[minmax(0,1.45fr)_minmax(420px,1.2fr)] items-stretch gap-3">
-            <section className="flex h-full min-h-0 min-w-0 flex-col rounded-[1.55rem] border border-white/10 bg-slate-950/55 p-3 shadow-[0_24px_100px_rgba(4,12,25,0.36)] backdrop-blur-xl">
-              <div className="mb-2.5 flex items-center justify-between gap-4">
+          <div className={styles.resizeRail}>
+            <button
+              type="button"
+              className={styles.resizeHandle}
+              aria-label="Resize control panel"
+              onPointerDown={handleResizeStart("sidebar")}
+            />
+          </div>
+
+          <div ref={workspaceRef} className={styles.workspaceColumn}>
+            <section
+              className={`${styles.scenePanel} panel-shell`}
+              style={{ width: `calc(${(sceneRatio * 100).toFixed(3)}% - 0.375rem)` }}
+            >
+              <div className={styles.sceneHeader}>
                 <div>
-                  <p className="text-[11px] font-medium uppercase tracking-[0.28em] text-slate-400">
-                    Scene Preview
-                  </p>
-                  <h2 className="mt-1.5 text-base font-semibold text-white">
-                    {fileName ?? "No model loaded"}
-                  </h2>
+                  <p className={styles.sceneEyebrow}>Scene Preview</p>
+                  <h2 className={styles.sceneTitle}>{fileName ?? "No model loaded"}</h2>
                 </div>
                 {selectedMesh ? (
-                  <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300">
-                    {selectedMesh.name}
-                  </div>
+                  <div className={`${styles.sceneBadge} pill`}>{selectedMesh.name}</div>
                 ) : null}
               </div>
 
-              <div className="min-h-0 flex-1">
-                <div className="h-full min-h-[520px] w-full overflow-hidden rounded-[1.25rem] border border-white/8 bg-[#0b1118]">
+              <div className={styles.sceneBody}>
+                <div className={styles.sceneViewport}>
                   {sceneRoot ? (
                     <PreviewPane
                       sceneRoot={sceneRoot}
@@ -477,7 +551,7 @@ function App() {
                       selectedInfluenceMeshIds={selectedInfluenceMeshIds}
                     />
                   ) : (
-                    <div className="flex h-full items-center justify-center px-8 text-center text-sm leading-7 text-slate-400">
+                    <div className={styles.sceneEmpty}>
                       Open an FBX to inspect the imported scene and select a bake target.
                     </div>
                   )}
@@ -485,19 +559,30 @@ function App() {
               </div>
             </section>
 
-            <TexturePreview
-              texture={bakedTexture}
-              status={status}
-              error={error}
-              busy={busy}
-              canBake={Boolean(sceneRoot && selectedMesh && selectedInfluenceMeshIds.length > 0)}
-              canCancelBake={bakeBusy}
-              canSave={Boolean(bakedTexture?.kind === "final")}
-              onPreview={handlePreview}
-              onBake={handleBake}
-              onCancelBake={handleCancelBake}
-              onSave={saveTexture}
-            />
+            <div className={styles.resizeRail}>
+              <button
+                type="button"
+                className={styles.resizeHandle}
+                aria-label="Resize preview panes"
+                onPointerDown={handleResizeStart("scene")}
+              />
+            </div>
+
+            <div className={styles.textureColumn}>
+              <TexturePreview
+                texture={bakedTexture}
+                status={status}
+                error={error}
+                busy={busy}
+                canBake={Boolean(sceneRoot && selectedMesh && selectedInfluenceMeshIds.length > 0)}
+                canCancelBake={bakeBusy}
+                canSave={Boolean(bakedTexture?.kind === "final")}
+                onPreview={handlePreview}
+                onBake={handleBake}
+                onCancelBake={handleCancelBake}
+                onSave={saveTexture}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -549,4 +634,8 @@ function buildBakeCompleteStatus(mode: BakeAction, baked: BakeResult): string {
 
 function isBakeCancelledError(error: unknown): boolean {
   return error instanceof Error && error.name === "BakeCancelledError";
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
 }

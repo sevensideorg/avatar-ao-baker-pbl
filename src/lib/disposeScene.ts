@@ -17,7 +17,9 @@ export function disposeLoadedScene(root: Object3D): void {
     }
 
     if (Array.isArray(node.material)) {
-      node.material.forEach((material) => disposeMaterial(material, disposedMaterials, disposedTextures));
+      node.material.forEach((material) =>
+        disposeMaterial(material, disposedMaterials, disposedTextures),
+      );
     } else if (node.material) {
       disposeMaterial(node.material, disposedMaterials, disposedTextures);
     }
@@ -75,8 +77,8 @@ function disposeTexture(texture: Texture, disposedTextures: Set<Texture>): void 
 function isTexture(value: unknown): value is Texture {
   return Boolean(
     value &&
-      typeof value === "object" &&
-      "isTexture" in value &&
-      (value as { isTexture?: boolean }).isTexture === true,
+    typeof value === "object" &&
+    "isTexture" in value &&
+    (value as { isTexture?: boolean }).isTexture === true,
   );
 }

@@ -61,7 +61,9 @@ function createMainWindow(): BrowserWindow {
     console.error(error);
   });
   window.webContents.on("console-message", (event) => {
-    console.log(`[renderer:${event.level}] ${event.message} (${event.sourceId}:${event.lineNumber})`);
+    console.log(
+      `[renderer:${event.level}] ${event.message} (${event.sourceId}:${event.lineNumber})`,
+    );
   });
   window.on("closed", () => {
     if (mainWindow === window) {

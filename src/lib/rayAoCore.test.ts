@@ -57,45 +57,18 @@ describe("executeRayAoBake", () => {
 
 function createTargetPlane(): SerializedGeometry {
   return {
-    position: new Float32Array([
-      -1, -1, 0,
-      1, -1, 0,
-      1, 1, 0,
-      -1, 1, 0,
-    ]),
-    normal: new Float32Array([
-      0, 0, 1,
-      0, 0, 1,
-      0, 0, 1,
-      0, 0, 1,
-    ]),
-    uv: new Float32Array([
-      0, 0,
-      1, 0,
-      1, 1,
-      0, 1,
-    ]),
+    position: new Float32Array([-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0]),
+    normal: new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1]),
+    uv: new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]),
     index: new Uint16Array([0, 1, 2, 0, 2, 3]),
   };
 }
 
 function createDegenerateUvTarget(): SerializedGeometry {
   return {
-    position: new Float32Array([
-      -1, -1, 0,
-      1, -1, 0,
-      0, 1, 0,
-    ]),
-    normal: new Float32Array([
-      0, 0, 1,
-      0, 0, 1,
-      0, 0, 1,
-    ]),
-    uv: new Float32Array([
-      0.5, 0.5,
-      0.5, 0.5,
-      0.5, 0.5,
-    ]),
+    position: new Float32Array([-1, -1, 0, 1, -1, 0, 0, 1, 0]),
+    normal: new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1]),
+    uv: new Float32Array([0.5, 0.5, 0.5, 0.5, 0.5, 0.5]),
     index: new Uint16Array([0, 1, 2]),
   };
 }
@@ -103,17 +76,20 @@ function createDegenerateUvTarget(): SerializedGeometry {
 function createOccluderPlane(size: number): SerializedGeometry {
   return {
     position: new Float32Array([
-      -size, -size, 0.18,
-      size, -size, 0.18,
-      size, size, 0.18,
-      -size, size, 0.18,
+      -size,
+      -size,
+      0.18,
+      size,
+      -size,
+      0.18,
+      size,
+      size,
+      0.18,
+      -size,
+      size,
+      0.18,
     ]),
-    normal: new Float32Array([
-      0, 0, -1,
-      0, 0, -1,
-      0, 0, -1,
-      0, 0, -1,
-    ]),
+    normal: new Float32Array([0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1]),
     index: new Uint16Array([0, 1, 2, 0, 2, 3]),
   };
 }

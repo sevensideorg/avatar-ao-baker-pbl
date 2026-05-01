@@ -242,11 +242,34 @@ function inferProfileId(
 ): ResolvedBakeRecommendationProfileId {
   const normalizedName = meshName.toLowerCase();
 
-  if (containsAny(normalizedName, ["hair", "bang", "fringe", "ponytail", "twintail", "braid", "ahoge"])) {
+  if (
+    containsAny(normalizedName, [
+      "hair",
+      "bang",
+      "fringe",
+      "ponytail",
+      "twintail",
+      "braid",
+      "ahoge",
+    ])
+  ) {
     return "hair";
   }
 
-  if (containsAny(normalizedName, ["face", "head", "eye", "brow", "eyelash", "mouth", "lip", "tooth", "teeth", "tongue"])) {
+  if (
+    containsAny(normalizedName, [
+      "face",
+      "head",
+      "eye",
+      "brow",
+      "eyelash",
+      "mouth",
+      "lip",
+      "tooth",
+      "teeth",
+      "tongue",
+    ])
+  ) {
     return "face";
   }
 
@@ -278,7 +301,9 @@ function inferProfileId(
     return "clothing";
   }
 
-  if (containsAny(normalizedName, ["body", "skin", "torso", "arm", "leg", "hand", "foot", "neck"])) {
+  if (
+    containsAny(normalizedName, ["body", "skin", "torso", "arm", "leg", "hand", "foot", "neck"])
+  ) {
     return "body";
   }
 
@@ -313,9 +338,7 @@ function resolveSampleMapSize(
   }
 }
 
-function resolvePadding(
-  profile: BakeRecommendationProfileDefinition,
-): BakeSettings["paddingPx"] {
+function resolvePadding(profile: BakeRecommendationProfileDefinition): BakeSettings["paddingPx"] {
   switch (profile.id) {
     case "hair":
       return 24;

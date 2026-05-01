@@ -1,12 +1,4 @@
-import {
-  Box3,
-  BufferAttribute,
-  BufferGeometry,
-  DoubleSide,
-  Ray,
-  Vector2,
-  Vector3,
-} from "three";
+import { Box3, BufferAttribute, BufferGeometry, DoubleSide, Ray, Vector2, Vector3 } from "three";
 import { MeshBVH } from "three-mesh-bvh";
 import type { BakeCancellation, BakeProgress, BakeSettings } from "./types";
 
@@ -168,9 +160,7 @@ export function mergeSerializedGeometries(geometries: SerializedGeometry[]): Ser
   const uv = includeUv ? new Float32Array(totalVertexCount * 2) : undefined;
   const uv2 = includeUv2 ? new Float32Array(totalVertexCount * 2) : undefined;
   const index =
-    totalVertexCount > 65535
-      ? new Uint32Array(totalIndexCount)
-      : new Uint16Array(totalIndexCount);
+    totalVertexCount > 65535 ? new Uint32Array(totalIndexCount) : new Uint16Array(totalIndexCount);
 
   let positionOffset = 0;
   let normalOffset = 0;
@@ -228,8 +218,12 @@ export async function executeRayAoBake(
   onProgress?: (progress: BakeProgress) => void,
   cancellation?: BakeCancellation,
 ): Promise<RayAoBakeResult> {
-  const { occluderCount, occluderGeometry: occluderGeometryData, settings, targetGeometry: targetGeometryData } =
-    request;
+  const {
+    occluderCount,
+    occluderGeometry: occluderGeometryData,
+    settings,
+    targetGeometry: targetGeometryData,
+  } = request;
   const bakeMapSize = resolveBakeMapSize(settings);
 
   const targetGeometry = deserializeBufferGeometry(targetGeometryData);
@@ -502,7 +496,13 @@ async function computeAmbientOcclusion(
     let weightSum = 0;
 
     for (let layerIndex = 0; layerIndex < layerCount; layerIndex += 1) {
-      const layerWeight = readUvLayer(sampleBuffer, pixelIndex, layerIndex, tempPixelPosition, tempPixelNormal);
+      const layerWeight = readUvLayer(
+        sampleBuffer,
+        pixelIndex,
+        layerIndex,
+        tempPixelPosition,
+        tempPixelNormal,
+      );
       if (layerWeight <= 0) {
         continue;
       }
@@ -532,12 +532,7 @@ async function computeAmbientOcclusion(
 
         workingRay.origin.copy(tempPixelPosition).addScaledVector(tempPixelNormal, originOffset);
         workingRay.direction.copy(tempDirection);
-        const hit = bvh.raycastFirst(
-          workingRay,
-          DoubleSide,
-          minHitDistance,
-          settings.maxDistance,
-        );
+        const hit = bvh.raycastFirst(workingRay, DoubleSide, minHitDistance, settings.maxDistance);
 
         if (
           hit &&
@@ -797,7 +792,11 @@ function upscaleAoPixels(
           colorWeight(source, topRightIndex, channel, topRightWeight) +
           colorWeight(source, bottomLeftIndex, channel, bottomLeftWeight) +
           colorWeight(source, bottomRightIndex, channel, bottomRightWeight);
-        target[targetIndex + channel] = clampInt(Math.round(weightedValue / coverageWeight), 0, 255);
+        target[targetIndex + channel] = clampInt(
+          Math.round(weightedValue / coverageWeight),
+          0,
+          255,
+        );
       }
       target[targetIndex + 3] = clampInt(Math.round(coverageWeight * 255), 0, 255);
     }
@@ -1178,7 +1177,7 @@ function radicalInverseVdC(bits: number): number {
 
 function wangHash(seed: number): number {
   let value = seed >>> 0;
-  value = (value ^ 61) ^ (value >>> 16);
+  value = value ^ 61 ^ (value >>> 16);
   value = Math.imul(value, 9);
   value = value ^ (value >>> 4);
   value = Math.imul(value, 0x27d4eb2d);
@@ -1256,7 +1255,11 @@ function updateBlurGuidance(sampleBuffer: UvSampleBuffer, pixelIndex: number): v
   }
 
   if (normalWeightSum > 0) {
-    tempLayerNormal.set(normalX / normalWeightSum, normalY / normalWeightSum, normalZ / normalWeightSum);
+    tempLayerNormal.set(
+      normalX / normalWeightSum,
+      normalY / normalWeightSum,
+      normalZ / normalWeightSum,
+    );
     if (tempLayerNormal.lengthSq() > 0.000001) {
       tempLayerNormal.normalize();
       worldNormals[pixelVectorIndex] = tempLayerNormal.x;

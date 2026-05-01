@@ -1,4 +1,5 @@
 import { InfluencePanel } from "./InfluencePanel";
+import styles from "./ControlPanel.module.css";
 import {
   bakeRecommendationProfiles,
   type BakeRecommendationProfileId,
@@ -26,12 +27,6 @@ interface ControlPanelProps {
   onUpdateSettings: (next: Partial<BakeSettings>) => void;
 }
 
-const fieldClassName =
-  "mt-1 w-full rounded-lg border border-white/10 bg-slate-900/80 px-2.5 py-1.5 text-[12px] text-white outline-none transition focus:border-cyan-400/50 focus:bg-slate-900";
-const sectionClassName =
-  "rounded-2xl border border-white/8 bg-white/[0.03] p-3";
-const statCardClassName =
-  "rounded-xl border border-white/6 bg-black/15 p-2 text-[10px] text-slate-400";
 const qualityOptions: Array<{
   label: string;
   value: BakeSettings["samples"];
@@ -42,10 +37,16 @@ const qualityOptions: Array<{
   { label: "High", value: 128, description: "128 rays" },
   { label: "Ultra", value: 256, description: "256 rays" },
 ];
-const textureSizeOptions = [2048, 4096] as const satisfies ReadonlyArray<BakeSettings["textureSize"]>;
-const sampleMapSizeOptions = [128, 1024, 2048] as const satisfies ReadonlyArray<BakeSettings["sampleMapSize"]>;
+const textureSizeOptions = [2048, 4096] as const satisfies ReadonlyArray<
+  BakeSettings["textureSize"]
+>;
+const sampleMapSizeOptions = [128, 1024, 2048] as const satisfies ReadonlyArray<
+  BakeSettings["sampleMapSize"]
+>;
 const paddingOptions = [8, 16, 24] as const satisfies ReadonlyArray<BakeSettings["paddingPx"]>;
-const backfaceModeOptions = ["ignore", "count"] as const satisfies ReadonlyArray<BakeSettings["backfaceMode"]>;
+const backfaceModeOptions = ["ignore", "count"] as const satisfies ReadonlyArray<
+  BakeSettings["backfaceMode"]
+>;
 
 export function ControlPanel(props: ControlPanelProps) {
   const {
@@ -71,40 +72,34 @@ export function ControlPanel(props: ControlPanelProps) {
 
   const selectedMesh = bakeTargetOptions.find((mesh) => mesh.id === selectedMeshId) ?? null;
   return (
-    <aside className="flex min-w-0 flex-col gap-2.5 rounded-[1.35rem] border border-white/10 bg-slate-950/65 p-3 shadow-[0_24px_100px_rgba(4,12,25,0.45)] backdrop-blur-xl">
-      <div className="flex items-start justify-between gap-4">
+    <aside className={`${styles.root} panel-shell`}>
+      <div className={styles.header}>
         <div>
-          <p className="text-[10px] font-medium uppercase tracking-[0.3em] text-cyan-300/80">
-            Avatar AO Baker
-          </p>
-          <h1 className="mt-1 text-[17px] font-semibold text-white">Load, bake, save.</h1>
-          <p className="mt-1 text-[11px] leading-5 text-slate-400">Ray AO for FBX avatars.</p>
+          <p className={styles.brandEyebrow}>Avatar AO Baker</p>
+          <h1 className={styles.title}>Load, bake, save.</h1>
+          <p className={styles.subtitle}>Ray AO for FBX avatars.</p>
         </div>
-        <span className="rounded-full border border-cyan-400/25 bg-cyan-400/10 px-2 py-1 text-[9px] font-medium uppercase tracking-[0.18em] text-cyan-200">
-          Ray Bake
-        </span>
+        <span className={`${styles.accentBadge} pill pill-accent`}>Ray Bake</span>
       </div>
 
-      <section className={sectionClassName}>
-        <div className="grid gap-2.5">
-          <div className="min-w-0">
-            <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">Workspace</p>
-            <p className="mt-1 truncate text-[12px] font-medium text-slate-100">
-              {fileName ?? "No FBX loaded"}
-            </p>
+      <section className="section-card">
+        <div className={styles.sectionGrid}>
+          <div className={styles.workspaceMeta}>
+            <p className={styles.workspaceLabel}>Workspace</p>
+            <p className={styles.workspaceValue}>{fileName ?? "No FBX loaded"}</p>
           </div>
 
-          <div className="flex flex-wrap gap-1.5">
-            <span className="rounded-full border border-white/10 bg-black/20 px-2 py-1 text-[9px] text-slate-300">
+          <div className={styles.metaPills}>
+            <span className={`${styles.metaPill} pill pill-dark`}>
               {bakeTargetOptions.length} bake target{bakeTargetOptions.length === 1 ? "" : "s"}
             </span>
-            <span className="rounded-full border border-white/10 bg-black/20 px-2 py-1 text-[9px] text-slate-300">
+            <span className={`${styles.metaPill} pill pill-dark`}>
               {formatSampleMapSize(settings.sampleMapSize)} internal map
             </span>
-            <span className="rounded-full border border-white/10 bg-black/20 px-2 py-1 text-[9px] text-slate-300">
+            <span className={`${styles.metaPill} pill pill-dark`}>
               {formatQualityLabel(settings.samples)}
             </span>
-            <span className="rounded-full border border-white/10 bg-black/20 px-2 py-1 text-[9px] text-slate-300">
+            <span className={`${styles.metaPill} pill pill-dark`}>
               {settingsMode === "recommended" ? recommendedProfileLabel : "Manual"} settings
             </span>
           </div>
@@ -113,33 +108,31 @@ export function ControlPanel(props: ControlPanelProps) {
             type="button"
             onClick={onOpenFile}
             disabled={busy}
-            className="w-full rounded-xl bg-cyan-400 px-3 py-2 text-[11px] font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:bg-cyan-400/50"
+            className={`${styles.openButton} button-base button-primary`}
           >
             Open FBX
           </button>
         </div>
       </section>
 
-      <div className="space-y-3">
-        <section className={sectionClassName}>
-          <div className="flex items-start justify-between gap-3">
+      <div className={styles.sectionStack}>
+        <section className="section-card">
+          <div className={styles.sectionHeader}>
             <div>
-              <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Selection</p>
-              <p className="mt-1 text-[10px] leading-5 text-slate-400">Pick the bake target.</p>
+              <p className={styles.sectionTitle}>Selection</p>
+              <p className={styles.sectionSubtitle}>Pick the bake target.</p>
             </div>
             {selectedMesh ? (
-              <div className="rounded-full border border-white/10 bg-black/20 px-2 py-0.5 text-[9px] text-slate-300">
-                {selectedMesh.name}
-              </div>
+              <div className={`${styles.selectionBadge} pill pill-dark`}>{selectedMesh.name}</div>
             ) : null}
           </div>
 
-          <div className="mt-2.5 grid gap-2.5">
+          <div className={styles.fieldGroup}>
             <div>
-              <label className="block text-sm text-slate-300">
+              <label className={styles.label}>
                 Target Mesh
                 <select
-                  className={fieldClassName}
+                  className="field-control"
                   value={selectedMeshId ?? ""}
                   onChange={(event) => onSelectMesh(event.target.value)}
                   disabled={bakeTargetOptions.length === 0 || busy}
@@ -156,41 +149,39 @@ export function ControlPanel(props: ControlPanelProps) {
               </label>
             </div>
 
-            <div className="grid grid-cols-2 gap-2.5">
-              <div className={statCardClassName}>
-                <p className="uppercase tracking-[0.18em]">Tris</p>
-                <p className="mt-1.5 text-sm font-medium text-slate-100">
+            <div className={styles.splitGrid}>
+              <div className="stat-card">
+                <p className={styles.statLabel}>Tris</p>
+                <p className={styles.statValueLarge}>
                   {selectedMesh ? selectedMesh.triangleCount.toLocaleString() : "0"}
                 </p>
               </div>
-              <div className={statCardClassName}>
-                <p className="uppercase tracking-[0.18em]">UVs</p>
-                <p className="mt-1.5 text-sm font-medium text-slate-100">
+              <div className="stat-card">
+                <p className={styles.statLabel}>UVs</p>
+                <p className={styles.statValueLarge}>
                   {selectedMesh ? selectedMesh.uvChannels.join(", ").toUpperCase() : "None"}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="mt-2.5 grid grid-cols-2 gap-2">
-            <div className={statCardClassName}>
-              <p className="uppercase tracking-[0.18em]">Vertices</p>
-              <p className="mt-1 text-sm font-medium text-slate-100">
+          <div className={styles.statsGrid}>
+            <div className="stat-card">
+              <p className={styles.statLabel}>Vertices</p>
+              <p className={styles.statValue}>
                 {selectedMesh ? selectedMesh.vertexCount.toLocaleString() : "0"}
               </p>
             </div>
-            <div className={statCardClassName}>
-              <p className="uppercase tracking-[0.18em]">Mode</p>
-              <p className="mt-1 text-sm font-medium text-slate-100">
+            <div className="stat-card">
+              <p className={styles.statLabel}>Mode</p>
+              <p className={styles.statValue}>
                 {selectedMesh?.isSkinned ? "Skinned pose" : "Static"}
               </p>
             </div>
           </div>
 
           {selectedMesh?.isSkinned ? (
-            <p className="mt-2.5 rounded-xl border border-amber-400/20 bg-amber-400/8 px-3 py-2 text-[10px] leading-5 text-amber-100">
-              Uses the current pose.
-            </p>
+            <p className={`${styles.warning} notice notice-warning`}>Uses the current pose.</p>
           ) : null}
         </section>
 
@@ -206,29 +197,27 @@ export function ControlPanel(props: ControlPanelProps) {
           onClearInfluenceMeshes={onClearInfluenceMeshes}
         />
 
-        <section className={sectionClassName}>
-          <div className="flex items-start justify-between gap-3">
+        <section className="section-card">
+          <div className={styles.sectionHeader}>
             <div>
-              <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Bake</p>
-              <p className="mt-1 text-[10px] leading-5 text-slate-400">Pick a profile, then tweak.</p>
+              <p className={styles.sectionTitle}>Bake</p>
+              <p className={styles.sectionSubtitle}>Pick a profile, then tweak.</p>
             </div>
-            <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[10px] text-slate-300">
+            <span className={`${styles.modePill} pill pill-dark`}>
               {settings.textureSize}px export
             </span>
           </div>
 
-          <div className="mt-2.5 grid gap-2">
+          <div className={styles.fieldGroup}>
             <div>
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-300">
-                  AO Profile
-                </p>
-                <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-slate-300">
+              <div className={styles.sectionHeader}>
+                <p className={styles.sectionTitle}>AO Profile</p>
+                <span className={`${styles.modePill} pill pill-dark`}>
                   {settingsMode === "recommended" ? "Recommended" : "Manual"}
                 </span>
               </div>
               <select
-                className={fieldClassName}
+                className="field-control"
                 value={recommendationProfileId}
                 onChange={(event) => {
                   const profileId = parseRecommendationProfileId(event.target.value);
@@ -247,14 +236,17 @@ export function ControlPanel(props: ControlPanelProps) {
             </div>
           </div>
 
-          <div className="mt-2.5 grid grid-cols-2 gap-2">
-            <label className="block text-sm text-slate-300">
+          <div className={styles.statsGrid}>
+            <label className={styles.label}>
               UV Channel
               <select
-                className={fieldClassName}
+                className="field-control"
                 value={settings.uvChannel}
                 onChange={(event) => {
-                  const uvChannel = parseUvChannel(event.target.value, selectedMesh?.uvChannels ?? []);
+                  const uvChannel = parseUvChannel(
+                    event.target.value,
+                    selectedMesh?.uvChannels ?? [],
+                  );
                   if (uvChannel) {
                     onUpdateSettings({ uvChannel });
                   }
@@ -269,10 +261,10 @@ export function ControlPanel(props: ControlPanelProps) {
               </select>
             </label>
 
-            <label className="block text-sm text-slate-300">
+            <label className={styles.label}>
               Export Size
               <select
-                className={fieldClassName}
+                className="field-control"
                 value={settings.textureSize}
                 onChange={(event) => {
                   const textureSize = parseNumberOption(event.target.value, textureSizeOptions);
@@ -290,10 +282,10 @@ export function ControlPanel(props: ControlPanelProps) {
               </select>
             </label>
 
-            <label className="block text-sm text-slate-300">
+            <label className={styles.label}>
               Internal Map
               <select
-                className={fieldClassName}
+                className="field-control"
                 value={settings.sampleMapSize}
                 onChange={(event) => {
                   const sampleMapSize = parseNumberOption(event.target.value, sampleMapSizeOptions);
@@ -309,10 +301,10 @@ export function ControlPanel(props: ControlPanelProps) {
               </select>
             </label>
 
-            <label className="block text-sm text-slate-300">
+            <label className={styles.label}>
               Quality
               <select
-                className={fieldClassName}
+                className="field-control"
                 value={settings.samples}
                 onChange={(event) => {
                   const samples = parseNumberOption(
@@ -333,10 +325,10 @@ export function ControlPanel(props: ControlPanelProps) {
               </select>
             </label>
 
-            <label className="block text-sm text-slate-300">
+            <label className={styles.label}>
               Padding
               <select
-                className={fieldClassName}
+                className="field-control"
                 value={settings.paddingPx}
                 onChange={(event) => {
                   const paddingPx = parseNumberOption(event.target.value, paddingOptions);
@@ -354,10 +346,10 @@ export function ControlPanel(props: ControlPanelProps) {
               </select>
             </label>
 
-            <label className="block text-sm text-slate-300">
+            <label className={styles.label}>
               Max Distance (mm)
               <input
-                className={fieldClassName}
+                className="field-control"
                 type="number"
                 min="1"
                 step="0.5"
@@ -372,10 +364,10 @@ export function ControlPanel(props: ControlPanelProps) {
               />
             </label>
 
-            <label className="block text-sm text-slate-300">
+            <label className={styles.label}>
               Ray Bias (mm)
               <input
-                className={fieldClassName}
+                className="field-control"
                 type="number"
                 min="0.1"
                 step="0.1"
@@ -390,10 +382,10 @@ export function ControlPanel(props: ControlPanelProps) {
               />
             </label>
 
-            <label className="block text-sm text-slate-300">
+            <label className={styles.label}>
               Cage Extrusion (mm)
               <input
-                className={fieldClassName}
+                className="field-control"
                 type="number"
                 min="0.1"
                 step="0.1"
@@ -408,10 +400,10 @@ export function ControlPanel(props: ControlPanelProps) {
               />
             </label>
 
-            <label className="block text-sm text-slate-300">
+            <label className={styles.label}>
               Backface Hits
               <select
-                className={fieldClassName}
+                className="field-control"
                 value={settings.backfaceMode}
                 onChange={(event) => {
                   const backfaceMode = parseStringOption(event.target.value, backfaceModeOptions);
@@ -427,12 +419,11 @@ export function ControlPanel(props: ControlPanelProps) {
             </label>
           </div>
 
-          <p className="mt-2 text-[10px] leading-5 text-slate-500">
+          <p className={styles.helperText}>
             Preview uses 32 rays and a 128px internal map. Final Bake uses the selected quality.
           </p>
         </section>
       </div>
-
     </aside>
   );
 }

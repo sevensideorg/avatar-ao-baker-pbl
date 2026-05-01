@@ -11,9 +11,7 @@ const tempTargetBounds = new Box3();
 const tempTargetSize = new Vector3();
 const tempMeshBounds = new Box3();
 
-export function recommendInfluenceMeshIds(
-  input: RecommendInfluenceMeshesInput,
-): string[] {
+export function recommendInfluenceMeshIds(input: RecommendInfluenceMeshesInput): string[] {
   const { maxDistance, meshOptions, targetMesh } = input;
 
   if (!targetMesh) {

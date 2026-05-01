@@ -25,6 +25,11 @@ type ManagedChild = {
   process: ChildProcess;
 };
 
+type CommandSpec = {
+  command: string;
+  args: string[];
+};
+
 async function main(): Promise<void> {
   const lockServer = await acquireDevLock();
   const children: ManagedChild[] = [];
@@ -50,9 +55,12 @@ async function main(): Promise<void> {
   process.on("SIGINT", () => shutdown(130));
   process.on("SIGTERM", () => shutdown(143));
 
+  const rendererCommand = vpCommand(["dev"]);
+  const electronTsCommand = vpCommand(["run", "dev:electron:ts"]);
+
   children.push(
-    startManagedProcess("renderer", pnpmCommand(), ["run", "dev:renderer"], shutdown),
-    startManagedProcess("electron-ts", pnpmCommand(), ["run", "dev:electron:ts"], shutdown),
+    startManagedProcess("renderer", rendererCommand.command, rendererCommand.args, shutdown),
+    startManagedProcess("electron-ts", electronTsCommand.command, electronTsCommand.args, shutdown),
   );
 
   try {
@@ -185,8 +193,11 @@ function delay(ms: number): Promise<void> {
   });
 }
 
-function pnpmCommand(): string {
-  return process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+function vpCommand(args: string[]): CommandSpec {
+  return {
+    command: process.platform === "win32" ? "vp.exe" : "vp",
+    args,
+  };
 }
 
 void main().catch((error: unknown) => {

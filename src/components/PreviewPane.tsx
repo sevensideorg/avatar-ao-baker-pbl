@@ -17,6 +17,7 @@ import {
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { clone } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { fitCameraToObject } from "../lib/scene";
+import styles from "./PreviewPane.module.css";
 
 const PREVIEW_ORIGINAL_STATE_KEY = "__previewOriginalState";
 
@@ -199,12 +200,10 @@ export function PreviewPane({
   }, [sceneRoot, selectedMeshId]);
 
   return (
-    <div className="relative h-full w-full overflow-hidden rounded-[1.25rem]">
-      <div ref={hostRef} className="h-full w-full" />
+    <div className={styles.root}>
+      <div ref={hostRef} className={styles.host} />
 
-      <div className="pointer-events-none absolute bottom-3 left-3 rounded-full border border-white/10 bg-slate-950/70 px-3 py-1.5 text-[11px] text-slate-300 backdrop-blur">
-        MMB rotate • Wheel zoom • Drag pan
-      </div>
+      <div className={styles.hint}>MMB rotate • Wheel zoom • Drag pan</div>
     </div>
   );
 }
@@ -254,7 +253,8 @@ function applyPreviewSelectionState(
       return;
     }
 
-    const selectionId = typeof node.userData.selectionId === "string" ? node.userData.selectionId : null;
+    const selectionId =
+      typeof node.userData.selectionId === "string" ? node.userData.selectionId : null;
     const isTarget = selectionId !== null && selectionId === selectedMeshId;
     const isInfluence = selectionId !== null && influenceMeshIds.has(selectionId);
 

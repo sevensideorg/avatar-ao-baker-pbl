@@ -9,6 +9,7 @@ import {
 } from "react";
 import { imageDataToPngBuffer } from "../lib/imageExport";
 import type { BakeResult } from "../lib/types";
+import styles from "./TexturePreview.module.css";
 
 interface TexturePreviewProps {
   texture: BakeResult | null;
@@ -134,12 +135,8 @@ export function TexturePreview({
     return Math.min(horizontalScale, verticalScale, 1);
   }, [texture, viewportSize.height, viewportSize.width]);
 
-  const fittedWidth = texture
-    ? Math.max(Math.round(texture.width * fitScale), 1)
-    : 0;
-  const fittedHeight = texture
-    ? Math.max(Math.round(texture.height * fitScale), 1)
-    : 0;
+  const fittedWidth = texture ? Math.max(Math.round(texture.width * fitScale), 1) : 0;
+  const fittedHeight = texture ? Math.max(Math.round(texture.height * fitScale), 1) : 0;
   const zoomScale = Math.max(zoomFactor, 1);
   const viewportInnerWidth = Math.max(viewportSize.width - 32, 1);
   const viewportInnerHeight = Math.max(viewportSize.height - 32, 1);
@@ -417,7 +414,11 @@ export function TexturePreview({
   const canPan = maxPanX > 0 || maxPanY > 0;
   const isBusy = busy || saveBusy;
   const remapActive = hasActiveRemap(remap);
-  const viewportCursorClassName = dragging ? "cursor-grabbing" : canPan ? "cursor-grab" : "cursor-default";
+  const viewportCursorClassName = dragging
+    ? styles.cursorGrabbing
+    : canPan
+      ? styles.cursorGrab
+      : styles.cursorDefault;
 
   function rebuildPreviewSource() {
     const baseCanvas = baseCanvasRef.current;
@@ -454,35 +455,33 @@ export function TexturePreview({
   }
 
   return (
-    <section className="flex h-full min-h-0 min-w-0 flex-col rounded-[1.55rem] border border-white/10 bg-slate-950/60 p-3.5 shadow-[0_24px_100px_rgba(4,12,25,0.36)] backdrop-blur-xl">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[11px] font-medium uppercase tracking-[0.28em] text-slate-400">
-            Texture Preview
-          </p>
-          <h2 className="mt-1.5 text-base font-semibold text-white">Baked AO output</h2>
-          <p className="mt-1 text-[12px] leading-5 text-slate-400">Check before save.</p>
+    <section className={`${styles.root} panel-shell`}>
+      <div className={styles.header}>
+        <div className={styles.headerCopy}>
+          <p className={styles.eyebrow}>Texture Preview</p>
+          <h2 className={styles.title}>Baked AO output</h2>
+          <p className={styles.subtitle}>Check before save.</p>
         </div>
 
         {texture ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300">
+          <div className={styles.metrics}>
+            <span className={`${styles.metricPill} pill`}>
               {texture.kind === "preview" ? "Preview" : "Final"}
             </span>
-            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300">
+            <span className={`${styles.metricPill} pill`}>
               {texture.width} x {texture.height}
             </span>
-            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300">
+            <span className={`${styles.metricPill} pill`}>
               {zoomFactor === 1 ? "Fit" : `${Math.round(zoomFactor * 100)}%`}
             </span>
           </div>
         ) : null}
       </div>
 
-      <div className="mt-3 grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_auto] gap-3 overflow-hidden">
+      <div className={styles.body}>
         <div
           ref={viewportRef}
-          className={`min-h-[220px] h-full overflow-hidden rounded-[1.25rem] border border-white/8 bg-[linear-gradient(45deg,rgba(255,255,255,0.04)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.04)_50%,rgba(255,255,255,0.04)_75%,transparent_75%,transparent)] bg-[length:24px_24px] select-none touch-none ${viewportCursorClassName}`}
+          className={`${styles.viewport} ${viewportCursorClassName}`}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={endPointerDrag}
@@ -493,35 +492,33 @@ export function TexturePreview({
             <canvas
               ref={canvasRef}
               aria-label="Baked ambient occlusion texture preview"
-              className="block h-full w-full"
+              className={styles.canvas}
             />
           ) : (
-            <div className="flex h-full items-center justify-center">
-              <p className="max-w-sm px-6 text-center text-sm leading-6 text-slate-400">
-                AO preview appears here.
-              </p>
+            <div className={styles.emptyViewport}>
+              <p className={styles.emptyCopy}>AO preview appears here.</p>
             </div>
           )}
         </div>
 
-        <div className="grid content-start gap-2.5">
-          <div className="rounded-2xl border border-white/8 bg-black/20 p-2.5 text-sm text-slate-300">
-            <div className="flex items-center justify-between gap-3">
+        <div className={styles.controls}>
+          <div className={styles.remapCard}>
+            <div className={styles.remapHeader}>
               <div>
-                <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">AO Remap</p>
-                <p className="mt-0.5 text-[11px] leading-5 text-slate-400">Adjust before save.</p>
+                <p className={styles.remapEyebrow}>AO Remap</p>
+                <p className={styles.remapSubtitle}>Adjust before save.</p>
               </div>
               <button
                 type="button"
                 onClick={handleResetRemap}
                 disabled={!remapActive}
-                className="rounded-lg border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-medium text-slate-200 transition hover:bg-white/8 disabled:cursor-not-allowed disabled:text-slate-500"
+                className={`${styles.resetButton} button-base button-neutral`}
               >
                 Reset
               </button>
             </div>
 
-            <div className="mt-2.5 grid gap-2.5">
+            <div className={styles.sliderStack}>
               <RemapSlider
                 label="Strength"
                 value={remap.strength}
@@ -555,12 +552,12 @@ export function TexturePreview({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
+          <div className={styles.actionRow}>
             <button
               type="button"
               onClick={onPreview}
               disabled={!canBake || isBusy}
-              className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-[12px] font-semibold text-slate-100 transition hover:bg-white/8 disabled:cursor-not-allowed disabled:text-slate-500"
+              className="button-base button-neutral"
             >
               Preview
             </button>
@@ -568,7 +565,7 @@ export function TexturePreview({
               type="button"
               onClick={onBake}
               disabled={!canBake || isBusy}
-              className="rounded-xl border border-rose-300/25 bg-rose-500/20 px-4 py-2 text-[12px] font-semibold text-rose-50 transition hover:border-rose-200/45 hover:bg-rose-500/28 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-slate-500"
+              className="button-base button-danger"
             >
               Bake AO
             </button>
@@ -576,7 +573,7 @@ export function TexturePreview({
               type="button"
               onClick={handleSaveClick}
               disabled={!canSave || isBusy}
-              className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-[12px] font-semibold text-slate-100 transition hover:bg-white/8 disabled:cursor-not-allowed disabled:text-slate-500"
+              className="button-base button-neutral"
             >
               Save PNG
             </button>
@@ -586,25 +583,21 @@ export function TexturePreview({
             <button
               type="button"
               onClick={onCancelBake}
-              className="rounded-xl border border-amber-300/25 bg-amber-300/12 px-4 py-2 text-[12px] font-semibold text-amber-50 transition hover:border-amber-200/45 hover:bg-amber-300/18"
+              className={`${styles.cancelButton} button-base button-warning`}
             >
               Cancel Bake
             </button>
           ) : null}
 
-          <p className="text-[10px] leading-5 text-slate-500">{status}</p>
+          <p className={styles.statusText}>{status}</p>
 
           {texture?.kind === "preview" ? (
-            <p className="rounded-xl border border-amber-300/15 bg-amber-300/10 px-3 py-2 text-[11px] leading-5 text-amber-100">
+            <p className={`${styles.previewNotice} notice notice-warning`}>
               Preview only. Run Bake AO to save.
             </p>
           ) : null}
 
-          {error ? (
-            <p className="rounded-xl border border-rose-400/20 bg-rose-400/10 px-3 py-2 text-[11px] leading-5 text-rose-100">
-              {error}
-            </p>
-          ) : null}
+          {error ? <p className={`${styles.errorNotice} notice notice-error`}>{error}</p> : null}
         </div>
       </div>
     </section>
@@ -746,12 +739,10 @@ function RemapSlider({
   onChange: (event: ChangeEvent<HTMLInputElement>) => void;
 }) {
   return (
-    <label className="grid gap-2">
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-[11px] font-medium text-slate-200">{label}</span>
-        <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] text-slate-300">
-          {displayValue}
-        </span>
+    <label className={styles.sliderLabel}>
+      <div className={styles.sliderHeader}>
+        <span className={styles.sliderName}>{label}</span>
+        <span className={`${styles.sliderValue} pill`}>{displayValue}</span>
       </div>
       <input
         type="range"
@@ -761,7 +752,7 @@ function RemapSlider({
         value={value}
         disabled={disabled}
         onChange={onChange}
-        className="h-2 cursor-pointer appearance-none rounded-full bg-white/10 accent-rose-400 disabled:cursor-not-allowed disabled:opacity-40"
+        className={styles.sliderInput}
       />
     </label>
   );

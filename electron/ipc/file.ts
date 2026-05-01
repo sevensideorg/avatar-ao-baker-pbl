@@ -5,37 +5,34 @@ import { IPC_CHANNELS, type SavePngRequest, type SavePngResult } from "../../sha
 const maxPngBufferBytes = 128 * 1024 * 1024;
 
 export function registerFileIpc(): void {
-  ipcMain.handle(
-    IPC_CHANNELS.savePng,
-    async (_event, request: unknown): Promise<SavePngResult> => {
-      const saveRequest = parseSavePngRequest(request);
-      const ownerWindow = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
-      const dialogOptions = {
-        title: "Save AO PNG",
-        defaultPath: saveRequest.defaultFileName,
-        filters: [{ name: "PNG image", extensions: ["png"] }],
-      };
+  ipcMain.handle(IPC_CHANNELS.savePng, async (_event, request: unknown): Promise<SavePngResult> => {
+    const saveRequest = parseSavePngRequest(request);
+    const ownerWindow = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
+    const dialogOptions = {
+      title: "Save AO PNG",
+      defaultPath: saveRequest.defaultFileName,
+      filters: [{ name: "PNG image", extensions: ["png"] }],
+    };
 
-      const result = ownerWindow
-        ? await dialog.showSaveDialog(ownerWindow, dialogOptions)
-        : await dialog.showSaveDialog(dialogOptions);
+    const result = ownerWindow
+      ? await dialog.showSaveDialog(ownerWindow, dialogOptions)
+      : await dialog.showSaveDialog(dialogOptions);
 
-      if (result.canceled || !result.filePath) {
-        return { canceled: true };
-      }
+    if (result.canceled || !result.filePath) {
+      return { canceled: true };
+    }
 
-      const filePath = result.filePath.toLowerCase().endsWith(".png")
-        ? result.filePath
-        : `${result.filePath}.png`;
+    const filePath = result.filePath.toLowerCase().endsWith(".png")
+      ? result.filePath
+      : `${result.filePath}.png`;
 
-      await writeFile(filePath, Buffer.from(saveRequest.buffer));
+    await writeFile(filePath, Buffer.from(saveRequest.buffer));
 
-      return {
-        canceled: false,
-        filePath,
-      };
-    },
-  );
+    return {
+      canceled: false,
+      filePath,
+    };
+  });
 }
 
 function parseSavePngRequest(value: unknown): SavePngRequest {

@@ -39,10 +39,7 @@ type WorkerErrorMessage = {
   payload: string;
 };
 
-type WorkerResponseMessage =
-  | WorkerResultMessage
-  | WorkerProgressMessage
-  | WorkerErrorMessage;
+type WorkerResponseMessage = WorkerResultMessage | WorkerProgressMessage | WorkerErrorMessage;
 
 const sceneGeometryCache = new WeakMap<Object3D, SceneGeometryCache>();
 
@@ -295,27 +292,24 @@ function runRayAoBakeInWorker(
       });
     };
 
-    worker.postMessage(
-      { type: "run", payload: request },
-      [
-        request.targetGeometry.position.buffer,
-        ...(request.targetGeometry.normal ? [request.targetGeometry.normal.buffer] : []),
-        ...(request.targetGeometry.uv ? [request.targetGeometry.uv.buffer] : []),
-        ...(request.targetGeometry.uv2 ? [request.targetGeometry.uv2.buffer] : []),
-        ...(request.targetGeometry.index ? [request.targetGeometry.index.buffer] : []),
-        request.occluderGeometry.position.buffer,
-        ...(request.occluderGeometry.normal ? [request.occluderGeometry.normal.buffer] : []),
-        ...(request.occluderGeometry.uv ? [request.occluderGeometry.uv.buffer] : []),
-        ...(request.occluderGeometry.uv2 ? [request.occluderGeometry.uv2.buffer] : []),
-        ...(request.occluderGeometry.index ? [request.occluderGeometry.index.buffer] : []),
-      ],
-    );
+    worker.postMessage({ type: "run", payload: request }, [
+      request.targetGeometry.position.buffer,
+      ...(request.targetGeometry.normal ? [request.targetGeometry.normal.buffer] : []),
+      ...(request.targetGeometry.uv ? [request.targetGeometry.uv.buffer] : []),
+      ...(request.targetGeometry.uv2 ? [request.targetGeometry.uv2.buffer] : []),
+      ...(request.targetGeometry.index ? [request.targetGeometry.index.buffer] : []),
+      request.occluderGeometry.position.buffer,
+      ...(request.occluderGeometry.normal ? [request.occluderGeometry.normal.buffer] : []),
+      ...(request.occluderGeometry.uv ? [request.occluderGeometry.uv.buffer] : []),
+      ...(request.occluderGeometry.uv2 ? [request.occluderGeometry.uv2.buffer] : []),
+      ...(request.occluderGeometry.index ? [request.occluderGeometry.index.buffer] : []),
+    ]);
   });
 }
 
 function sanitizeFileStem(name: string): string {
   const stripped = name.replace(/\.fbx$/i, "").trim() || "mesh";
-  return stripped.replace(/[<>:\"/\\|?*]+/g, "_");
+  return stripped.replace(/[<>:"/\\|?*]+/g, "_");
 }
 
 function cloneRayAoBakeRequest(request: RayAoBakeRequest): RayAoBakeRequest {
